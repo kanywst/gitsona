@@ -1,0 +1,30 @@
+{
+  "name": "gitsona",
+  "version": "0.1.0",
+  "description": "One command to turn your real GitHub activity into a profile README that looks designed and says something true about you.",
+  "type": "module",
+  "bin": {
+    "gitsona": "dist/cli.js"
+  },
+  "files": ["dist", "fonts/*.woff2", "fonts/metrics.json", "fonts/OFL-*.txt"],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "bun build src/cli.ts --target=node --outfile=dist/cli.js && chmod +x dist/cli.js",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "dev": "bun src/cli.ts"
+  },
+  "keywords": ["github", "profile", "readme", "svg", "cli", "generator"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kanywst/gitsona.git"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}

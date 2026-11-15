@@ -1,0 +1,6 @@
+node_modules/
+dist/
+fonts/src/
+out/
+*.log
+.DS_Store
