@@ -5,7 +5,7 @@ import { Doc, esc, fmt, r1, rng } from "./svg.ts";
 import type { Theme } from "./theme.ts";
 
 const W = 1200;
-const H = 460;
+const H = 480;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function fmtDate(iso: string): string {
@@ -97,7 +97,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
       `<line x1="${r1(x)}" y1="${y0 - 18}" x2="${r1(x)}" y2="${H - 44}" stroke="${t.rule}" stroke-width="1" stroke-dasharray="2 5"/>`,
       doc.text(x, H - 26, d.date.endsWith("01-01") ? `${label} ${d.date.slice(0, 4)}` : label, {
         font: "regular",
-        size: 12,
+        size: 14,
         fill: t.faint,
         anchor: "middle",
       }),
@@ -110,7 +110,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
   if (peakIdx >= 0 && p.lastYear.peak.count > 0) {
     const [px, py] = pos(peakIdx);
     const label = `${fmt(p.lastYear.peak.count)} on ${fmtDate(p.lastYear.peak.date)}`;
-    const lw = measure(label, "medium", 13);
+    const lw = measure(label, "medium", 15);
     const right = px + 14 + lw < W - 24;
     const lx = right ? px + 12 : px - 12;
     peak =
@@ -118,7 +118,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
       `<path d="M${r1(px)} ${r1(py - 7)}l6.5 11h-13z" fill="${t.accent}" stroke="${t.bg}" stroke-width="2" paint-order="stroke"/>` +
       doc.text(lx, py + 3, label, {
         font: "medium",
-        size: 13,
+        size: 15,
         fill: t.ink,
         anchor: right ? "start" : "end",
         tnum: true,
@@ -129,15 +129,15 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
 
   // Left column: who, what, and a cartographic legend of the numbers that back it.
   const left = 56;
-  const colW = 470;
+  const colW = 520;
   const joined = new Date(p.joined);
   const since = `@${p.login} on GitHub since ${MONTHS[joined.getUTCMonth()]} ${joined.getUTCFullYear()}`;
   const nameSize = fitSize(p.displayName, "display", 104, colW + 60, 48);
-  const headline = wrap(p.headline, "text", 26, colW, 2);
-  const summary = wrap(p.summary, "regular", 17, colW - 20, 3);
+  const headline = wrap(p.headline, "text", 30, colW, 2);
+  const summary = wrap(p.summary, "regular", 19, colW - 10, 3);
   let y = 76;
   const head: string[] = [];
-  head.push(doc.text(left, y, ellipsize(since, "medium", 15, colW), { font: "medium", size: 15, fill: t.muted }));
+  head.push(doc.text(left, y, ellipsize(since, "medium", 17, colW), { font: "medium", size: 17, fill: t.muted }));
   y += 22 + nameSize * 0.7;
   head.push(
     doc.text(left - nameSize * 0.04, y, p.displayName, {
@@ -149,13 +149,13 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
   );
   y += 44;
   for (const l of headline) {
-    head.push(doc.text(left, y, l, { font: "text", size: 26, fill: t.ink, tracking: -0.3 }));
-    y += 31;
+    head.push(doc.text(left, y, l, { font: "text", size: 30, fill: t.ink, tracking: -0.4 }));
+    y += 35;
   }
   y += 2;
   for (const l of summary) {
-    head.push(doc.text(left, y, l, { font: "regular", size: 17, fill: t.muted }));
-    y += 24;
+    head.push(doc.text(left, y, l, { font: "regular", size: 19, fill: t.muted }));
+    y += 26;
   }
 
   const legend: [string, string][] = [
@@ -164,17 +164,17 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
     ["PRs merged in others' projects", fmt(p.upstream.merged)],
     ["Stars on own repositories", fmt(p.totals.stars)],
   ];
-  const ly0 = Math.max(y + 18, H - 26 - legend.length * 25);
-  const lx1 = left + 360;
+  const ly0 = Math.max(y + 22, H - 30 - legend.length * 28);
+  const lx1 = left + 410;
   const legendSvg = legend
     .map(([k, v], i) => {
-      const ly = ly0 + i * 25;
-      const kw = measure(k, "regular", 14);
-      const vw = measure(v, "semibold", 14);
+      const ly = ly0 + i * 28;
+      const kw = measure(k, "regular", 16);
+      const vw = measure(v, "semibold", 16);
       return (
-        doc.text(left, ly, k, { font: "regular", size: 14, fill: t.muted }) +
+        doc.text(left, ly, k, { font: "regular", size: 16, fill: t.muted }) +
         `<line x1="${r1(left + kw + 8)}" y1="${ly - 4}" x2="${r1(lx1 - vw - 8)}" y2="${ly - 4}" stroke="${t.faint}" stroke-width="1.2" stroke-dasharray="0.1 5" stroke-linecap="round"/>` +
-        doc.text(lx1, ly, v, { font: "semibold", size: 14, fill: t.ink, anchor: "end", tnum: true })
+        doc.text(lx1, ly, v, { font: "semibold", size: 16, fill: t.ink, anchor: "end", tnum: true })
       );
     })
     .join("");
@@ -185,7 +185,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
     `Daily contributions as relief, ${fmtDate(days[0]?.date ?? "")} to ${fmtDate(days.at(-1)?.date ?? "")}`,
     {
       font: "regular",
-      size: 12,
+      size: 14,
       fill: t.faint,
       anchor: "end",
       halo: { color: t.bg, width: 3 },

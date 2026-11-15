@@ -13,7 +13,7 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 /** Four spectra, each with the evidence that placed the marker. */
 export function traits(p: Profile, t: Theme): string {
   const cellW = (W - PAD * 2 - 72) / 2;
-  const rowH = 108;
+  const rowH = 120;
   const H = 48 + Math.ceil(p.traits.length / 2) * rowH + 8;
   const doc = new Doc(W, H, t, `How ${p.displayName} works`);
   const out: string[] = [];
@@ -22,10 +22,10 @@ export function traits(p: Profile, t: Theme): string {
     const y = 60 + Math.floor(i / 2) * rowH;
     const leanRight = tr.value >= 0.5;
     out.push(
-      doc.text(x, y, tr.left, { font: "medium", size: 16, fill: leanRight ? t.muted : t.ink }),
-      doc.text(x + cellW, y, tr.right, { font: "medium", size: 16, fill: leanRight ? t.ink : t.muted, anchor: "end" }),
+      doc.text(x, y, tr.left, { font: "medium", size: 19, fill: leanRight ? t.muted : t.ink }),
+      doc.text(x + cellW, y, tr.right, { font: "medium", size: 19, fill: leanRight ? t.ink : t.muted, anchor: "end" }),
     );
-    const ty = y + 22;
+    const ty = y + 26;
     out.push(
       `<line x1="${x}" y1="${ty}" x2="${r1(x + cellW)}" y2="${ty}" stroke="${t.rule}" stroke-width="2" stroke-linecap="round"/>`,
     );
@@ -41,7 +41,7 @@ export function traits(p: Profile, t: Theme): string {
     out.push(
       `<line x1="${r1(cx)}" y1="${ty}" x2="${r1(mx)}" y2="${ty}" stroke="${t.accent}" stroke-width="2.5" stroke-linecap="round"/>`,
       `<circle cx="${r1(mx)}" cy="${ty}" r="7" fill="${t.accent}" stroke="${t.bg}" stroke-width="3"/>`,
-      doc.text(x, ty + 34, ellipsize(tr.evidence, "regular", 15, cellW), { font: "regular", size: 15, fill: t.muted }),
+      doc.text(x, ty + 40, ellipsize(tr.evidence, "regular", 17, cellW), { font: "regular", size: 17, fill: t.muted }),
     );
   });
   return doc.render(out.join(""));
@@ -49,7 +49,7 @@ export function traits(p: Profile, t: Theme): string {
 
 /** When the commits land: weekday × hour in the author's own time zone, plus twelve months of volume. */
 export function rhythm(p: Profile, t: Theme): string {
-  const H = 312;
+  const H = 332;
   const doc = new Doc(W, H, t, `When ${p.displayName} commits`);
   const r = p.rhythm;
   const gx = 104;
@@ -74,7 +74,7 @@ export function rhythm(p: Profile, t: Theme): string {
   }
   r.grid.forEach((row, d) => {
     const cy = gy + d * ch;
-    out.push(doc.text(gx - 24, cy + 4.5, WEEKDAYS[d]!, { font: "regular", size: 13, fill: t.faint, anchor: "end" }));
+    out.push(doc.text(gx - 24, cy + 4.5, WEEKDAYS[d]!, { font: "regular", size: 15, fill: t.faint, anchor: "end" }));
     row.forEach((c, h) => {
       const cx = gx + col(h) * cw + cw / 2;
       if (!c) {
@@ -90,9 +90,9 @@ export function rhythm(p: Profile, t: Theme): string {
   for (let k = 0; k < 24; k += 3) {
     const h = (startHour + k) % 24;
     out.push(
-      doc.text(gx + k * cw + cw / 2, gy + 7 * ch + 10, `${String(h).padStart(2, "0")}:00`, {
+      doc.text(gx + k * cw + cw / 2, gy + 7 * ch + 14, `${String(h).padStart(2, "0")}:00`, {
         font: "regular",
-        size: 12,
+        size: 14,
         fill: h === 0 ? t.muted : t.faint,
         anchor: "middle",
         tnum: true,
@@ -106,15 +106,15 @@ export function rhythm(p: Profile, t: Theme): string {
   out.push(
     doc.text(rx, 84, r.samples ? r.chronotype : "No sample yet", {
       font: "display",
-      size: 44,
+      size: 52,
       fill: t.ink,
-      tracking: -0.8,
+      tracking: -0.9,
     }),
   );
-  let y = 116;
-  for (const l of wrap(r.sentence, "regular", 16, rw, 3)) {
-    out.push(doc.text(rx, y, l, { font: "regular", size: 16, fill: t.muted }));
-    y += 22;
+  let y = 122;
+  for (const l of wrap(r.sentence, "regular", 18, rw, 3)) {
+    out.push(doc.text(rx, y, l, { font: "regular", size: 18, fill: t.muted }));
+    y += 25;
   }
   const months = r.monthly;
   if (months.length) {
@@ -130,9 +130,9 @@ export function rhythm(p: Profile, t: Theme): string {
         `<rect x="${r1(bx + 3)}" y="${r1(base - bh)}" width="${r1(bw - 6)}" height="${r1(bh)}" rx="2" fill="${last ? t.accent : t.contourMajor}"/>`,
       );
       out.push(
-        doc.text(bx + bw / 2, base + 18, MONTHS[+m.month.slice(5, 7) - 1]!.charAt(0), {
+        doc.text(bx + bw / 2, base + 20, MONTHS[+m.month.slice(5, 7) - 1]!.charAt(0), {
           font: "regular",
-          size: 12,
+          size: 14,
           fill: t.faint,
           anchor: "middle",
         }),
@@ -142,11 +142,11 @@ export function rhythm(p: Profile, t: Theme): string {
     out.push(
       doc.text(
         rx,
-        H - 18,
+        H - 16,
         `Public commits per month, peak ${fmt(peakM.commits)} in ${MONTHS[+peakM.month.slice(5, 7) - 1]} ${peakM.month.slice(0, 4)}`,
         {
           font: "regular",
-          size: 12,
+          size: 14,
           fill: t.faint,
           tnum: true,
         },
@@ -155,10 +155,10 @@ export function rhythm(p: Profile, t: Theme): string {
   }
   out.push(
     doc.text(
-      gx - 24 - measure("Mon", "regular", 13),
-      H - 18,
-      `${fmt(r.samples)} commits sampled across 12 months, shown in each commit's own time zone`,
-      { font: "regular", size: 12, fill: t.faint },
+      gx - 24 - measure("Mon", "regular", 15),
+      H - 16,
+      `${fmt(r.samples)} commits sampled over 12 months, in each commit's own time zone`,
+      { font: "regular", size: 14, fill: t.faint },
     ),
   );
   return doc.render(out.join(""));
@@ -180,8 +180,8 @@ function topParts(parts: LangShare[], keep: Set<string>, t: Theme): LangShare[] 
 /** Language strata: one layer per year of repositories, newest on top, width by volume of code. */
 export function strata(p: Profile, t: Theme): string {
   const layers = [...p.strata].reverse().slice(0, 8);
-  const rowH = 38;
-  const top = 108;
+  const rowH = 44;
+  const top = 112;
   const H = top + layers.length * rowH + 40;
   const doc = new Doc(W, H, t, `Languages ${p.displayName} writes, by year`);
   const keep = new Set(p.languages.slice(0, 7).map((l) => l.name));
@@ -194,17 +194,17 @@ export function strata(p: Profile, t: Theme): string {
   for (const l of topParts(p.languages, keep, t)) {
     const label = l.name;
     const share = `${l.share < 0.01 ? "<1" : Math.round(l.share * 100)}%`;
-    const w = 18 + measure(label, "medium", 15) + 6 + measure(share, "regular", 15) + 28;
+    const w = 20 + measure(label, "medium", 17) + 7 + measure(share, "regular", 17) + 30;
     if (lx + w > W - PAD) {
       lx = PAD;
-      ly += 26;
+      ly += 30;
     }
     out.push(
-      `<rect x="${lx}" y="${ly - 11}" width="11" height="11" rx="3" fill="${l.name === OTHER ? t.faint : color.get(l.name)}"/>`,
-      doc.text(lx + 18, ly, label, { font: "medium", size: 15, fill: t.ink }),
-      doc.text(lx + 18 + measure(label, "medium", 15) + 6, ly, share, {
+      `<rect x="${lx}" y="${ly - 12}" width="12" height="12" rx="3" fill="${l.name === OTHER ? t.faint : color.get(l.name)}"/>`,
+      doc.text(lx + 20, ly, label, { font: "medium", size: 17, fill: t.ink }),
+      doc.text(lx + 20 + measure(label, "medium", 17) + 7, ly, share, {
         font: "regular",
-        size: 15,
+        size: 17,
         fill: t.muted,
         tnum: true,
       }),
@@ -212,7 +212,7 @@ export function strata(p: Profile, t: Theme): string {
     lx += w;
   }
 
-  const bx = PAD + 70;
+  const bx = PAD + 78;
   const bwMax = W - PAD - 110 - bx;
   const maxBytes = Math.max(1, ...layers.map((l) => l.bytes));
   const rand = rng(`${p.login}:strata`);
@@ -243,24 +243,24 @@ export function strata(p: Profile, t: Theme): string {
       const fill = part.name === OTHER ? t.contourMajor : (color.get(part.name) ?? t.faint);
       segs.push(`<rect x="${r1(sx)}" y="${y - 3}" width="${r1(sw + 0.6)}" height="${h + 6}" fill="${fill}"/>`);
       const label = part.name === OTHER ? "" : part.name;
-      if (label && measure(label, "medium", 12) + 16 < sw) {
+      if (label && measure(label, "medium", 14) + 18 < sw) {
         segs.push(
-          doc.text(sx + 8, y + h / 2 + 4.3, label, { font: "medium", size: 12, fill: textOn(fill), opacity: 0.92 }),
+          doc.text(sx + 9, y + h / 2 + 5, label, { font: "medium", size: 14, fill: textOn(fill), opacity: 0.92 }),
         );
       }
       sx += sw;
     }
     out.push(
-      doc.text(PAD, y + h / 2 + 6, String(layer.year), {
+      doc.text(PAD, y + h / 2 + 7, String(layer.year), {
         font: "text",
-        size: 18,
+        size: 20,
         fill: i === 0 ? t.ink : t.muted,
         tnum: true,
       }),
       `<g clip-path="url(#s${i})">${segs.join("")}</g>`,
-      doc.text(W - PAD, y + h / 2 + 5, `${layer.repos} ${layer.repos === 1 ? "repo" : "repos"}`, {
+      doc.text(W - PAD, y + h / 2 + 6, `${layer.repos} ${layer.repos === 1 ? "repo" : "repos"}`, {
         font: "regular",
-        size: 14,
+        size: 16,
         fill: t.faint,
         anchor: "end",
         tnum: true,
@@ -272,7 +272,7 @@ export function strata(p: Profile, t: Theme): string {
       PAD,
       H - 18,
       "Each layer is the code in repositories created that year. Width grows with the amount of code.",
-      { font: "regular", size: 12, fill: t.faint },
+      { font: "regular", size: 14, fill: t.faint },
     ),
   );
   return doc.render(out.join(""));
@@ -281,25 +281,25 @@ export function strata(p: Profile, t: Theme): string {
 /** Projects owned by others where the person's pull requests were merged. */
 export function upstream(p: Profile, t: Theme, avatars: Map<string, string>): string {
   const rows = p.upstream.projects.slice(0, 8);
-  const rowH = 46;
-  const H = 100 + rows.length * rowH + 52;
+  const rowH = 54;
+  const H = 104 + rows.length * rowH + 56;
   const doc = new Doc(W, H, t, `Where ${p.displayName} contributes upstream`);
   const u = p.upstream;
   const out: string[] = [];
   const head = `${fmt(u.merged)} pull requests merged in ${u.projects.length} ${u.projects.length === 1 ? "project" : "projects"} owned by others${u.open ? `, ${u.open} still open` : ""}.`;
   out.push(
-    doc.text(PAD, 60, ellipsize(head, "text", 22, W - PAD * 2), {
+    doc.text(PAD, 62, ellipsize(head, "text", 26, W - PAD * 2), {
       font: "text",
-      size: 22,
+      size: 26,
       fill: t.ink,
       tracking: -0.2,
     }),
   );
 
-  const dotX = 600;
+  const dotX = 700;
   const maxDots = Math.floor((W - PAD - 110 - dotX) / 14);
   rows.forEach((proj, i) => {
-    const y = 100 + i * rowH;
+    const y = 104 + i * rowH;
     const cy = y + rowH / 2;
     out.push(`<line x1="${PAD}" y1="${y}" x2="${W - PAD}" y2="${y}" stroke="${t.rule}" stroke-width="1"/>`);
     const av = avatars.get(proj.ownerAvatar);
@@ -315,15 +315,20 @@ export function upstream(p: Profile, t: Theme, avatars: Map<string, string>): st
     }
     const [owner, name] = proj.repo.split("/") as [string, string];
     const ownerTxt = `${owner}/`;
-    const ow = measure(ownerTxt, "regular", 17);
+    const ow = measure(ownerTxt, "regular", 20);
     out.push(
-      doc.text(PAD + 44, cy + 6, ownerTxt, { font: "regular", size: 17, fill: t.muted }),
-      doc.text(PAD + 44 + ow, cy + 6, ellipsize(name, "semibold", 17, dotX - 150 - PAD - ow), {
-        font: "semibold",
-        size: 17,
-        fill: t.ink,
-      }),
-      doc.text(dotX - 24, cy + 5, sinceLabel(proj), { font: "regular", size: 13, fill: t.faint, anchor: "end" }),
+      doc.text(PAD + 46, cy + 7, ownerTxt, { font: "regular", size: 20, fill: t.muted }),
+      doc.text(
+        PAD + 46 + ow,
+        cy + 7,
+        ellipsize(name, "semibold", 20, dotX - 24 - measure(sinceLabel(proj), "regular", 15) - 24 - (PAD + 46 + ow)),
+        {
+          font: "semibold",
+          size: 20,
+          fill: t.ink,
+        },
+      ),
+      doc.text(dotX - 24, cy + 6, sinceLabel(proj), { font: "regular", size: 15, fill: t.faint, anchor: "end" }),
     );
     const total = proj.merged + proj.open;
     for (let k = 0; k < Math.min(total, maxDots); k++) {
@@ -339,25 +344,25 @@ export function upstream(p: Profile, t: Theme, avatars: Map<string, string>): st
         doc.text(dotX + maxDots * 14 + 4, cy + 5, `+${total - maxDots}`, { font: "medium", size: 13, fill: t.muted }),
       );
     out.push(
-      doc.text(W - PAD, cy + 5, `★ ${fmt(proj.stars)}`, {
+      doc.text(W - PAD, cy + 6, `★ ${fmt(proj.stars)}`, {
         font: "regular",
-        size: 14,
+        size: 16,
         fill: t.muted,
         anchor: "end",
         tnum: true,
       }),
     );
   });
-  const ly = 100 + rows.length * rowH;
+  const ly = 104 + rows.length * rowH;
   out.push(
     `<line x1="${PAD}" y1="${ly}" x2="${W - PAD}" y2="${ly}" stroke="${t.rule}" stroke-width="1"/>`,
     `<rect x="${PAD}" y="${H - 29}" width="10" height="10" rx="2.5" fill="${t.accent}"/>`,
-    doc.text(PAD + 16, H - 20, "merged", { font: "regular", size: 12, fill: t.faint }),
-    `<rect x="${PAD + 72.75}" y="${H - 28.25}" width="8.5" height="8.5" rx="2" fill="none" stroke="${t.accent}" stroke-width="1.5"/>`,
-    doc.text(PAD + 88, H - 20, "open", { font: "regular", size: 12, fill: t.faint }),
+    doc.text(PAD + 16, H - 20, "merged", { font: "regular", size: 14, fill: t.faint }),
+    `<rect x="${PAD + 82.75}" y="${H - 28.25}" width="8.5" height="8.5" rx="2" fill="none" stroke="${t.accent}" stroke-width="1.5"/>`,
+    doc.text(PAD + 98, H - 20, "open", { font: "regular", size: 14, fill: t.faint }),
     doc.text(W - PAD, H - 20, "Stars are the project's, not the contributor's.", {
       font: "regular",
-      size: 12,
+      size: 14,
       fill: t.faint,
       anchor: "end",
     }),
@@ -374,7 +379,7 @@ function sinceLabel(p: UpstreamProject): string {
 }
 
 export const CARD_W = 580;
-export const CARD_H = 156;
+export const CARD_H = 180;
 
 /** One project card. Its corner carries a small contour fingerprint drawn from the repo name. */
 export function card(repo: Repo, t: Theme): string {
@@ -404,35 +409,35 @@ export function card(repo: Repo, t: Theme): string {
   const out: string[] = [];
   out.push(`<g clip-path="url(#cc)">${fp}<rect width="${CARD_W}" height="${CARD_H}" fill="url(#fv)"/></g>`);
   out.push(
-    doc.text(28, 50, ellipsize(repo.name, "text", 24, CARD_W - 56), {
+    doc.text(30, 54, ellipsize(repo.name, "text", 29, CARD_W - 60), {
       font: "text",
-      size: 24,
+      size: 29,
       fill: t.ink,
       tracking: -0.3,
     }),
   );
-  let y = 80;
-  for (const l of wrap(repo.description ?? "", "regular", 15, CARD_W - 120, 2)) {
-    out.push(doc.text(28, y, l, { font: "regular", size: 15, fill: t.muted }));
-    y += 21;
+  let y = 88;
+  for (const l of wrap(repo.description ?? "", "regular", 18, CARD_W - 90, 2)) {
+    out.push(doc.text(30, y, l, { font: "regular", size: 18, fill: t.muted }));
+    y += 25;
   }
-  let fx = 28;
-  const fy = CARD_H - 22;
+  let fx = 30;
+  const fy = CARD_H - 24;
   if (repo.primaryLanguage) {
-    out.push(`<circle cx="${fx + 5}" cy="${fy - 4.5}" r="5" fill="${repo.primaryLanguage.color ?? t.faint}"/>`);
-    out.push(doc.text(fx + 16, fy, repo.primaryLanguage.name, { font: "medium", size: 13, fill: t.muted }));
-    fx += 16 + measure(repo.primaryLanguage.name, "medium", 13) + 22;
+    out.push(`<circle cx="${fx + 6}" cy="${fy - 5.5}" r="6" fill="${repo.primaryLanguage.color ?? t.faint}"/>`);
+    out.push(doc.text(fx + 19, fy, repo.primaryLanguage.name, { font: "medium", size: 16, fill: t.muted }));
+    fx += 19 + measure(repo.primaryLanguage.name, "medium", 16) + 24;
   }
   if (repo.stars > 0) {
     const s = `★ ${fmt(repo.stars)}`;
-    out.push(doc.text(fx, fy, s, { font: "medium", size: 13, fill: t.muted, tnum: true }));
-    fx += measure(s, "medium", 13) + 22;
+    out.push(doc.text(fx, fy, s, { font: "medium", size: 16, fill: t.muted, tnum: true }));
+    fx += measure(s, "medium", 16) + 24;
   }
   if (repo.latestRelease) {
     out.push(
-      doc.text(fx, fy, ellipsize(repo.latestRelease.tag, "medium", 13, 140), {
+      doc.text(fx, fy, ellipsize(repo.latestRelease.tag, "medium", 16, 160), {
         font: "medium",
-        size: 13,
+        size: 16,
         fill: t.muted,
       }),
     );
