@@ -10,6 +10,14 @@ describe("analyze", () => {
     expect(p.landmarks.map((r) => r.name)).not.toContain("old-tool");
   });
 
+  test("leaves pinned repositories to GitHub's own Pinned section", () => {
+    const raw = fixture();
+    raw.pinned = [raw.repos[0]!];
+    const names = analyze(raw).landmarks.map((r) => r.name);
+    expect(names).not.toContain("authz-engine");
+    expect(names).toContain("oidc-kit");
+  });
+
   test("ranks specific domains ahead of generic ones", () => {
     expect(p.domains[0]?.id).toBe("authorization");
     expect(p.headline.toLowerCase()).toContain("authorization");

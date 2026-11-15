@@ -9,6 +9,14 @@ import { GitHub, GitHubError, resolveToken } from "./github.ts";
 import { previewHtml } from "./preview.ts";
 import { commitAndPush, createProfileRepo, ensureCheckout, hasGh, repoExists, writeWorkflow } from "./publish.ts";
 import { mergeReadme, readmeBlock } from "./readme.ts";
+import {
+  DEFAULT_TYPESET,
+  TYPESET_NAMES,
+  TYPESETS,
+  type Typeset,
+  type TypesetName,
+  withDisplayFont,
+} from "./render/fonts.ts";
 import { fetchAvatars, render, SECTIONS, type Section } from "./render/index.ts";
 
 const VERSION = "0.1.0";
@@ -31,6 +39,9 @@ Output
 
 Content
       --sections <list>  Comma-separated, in order: ${SECTIONS.join(",")}
+      --font <name>      Typeface preset: pixel (default), geist, mono, grotesk, rounded, retro
+      --display-font <file>
+                         Use your own .ttf/.otf for the name and headlines
       --accent <hex>     Accent colour (default: your top language's colour)
       --no-motion        Skip the contour draw-in animation
       --no-cursor        Leave out the accent "_" after your name
@@ -81,6 +92,8 @@ async function main(argv: string[]): Promise<number> {
       json: { type: "boolean" },
       sections: { type: "string" },
       accent: { type: "string" },
+      font: { type: "string" },
+      "display-font": { type: "string" },
       "no-motion": { type: "boolean" },
       "no-cursor": { type: "boolean" },
       "no-bio": { type: "boolean" },
@@ -111,6 +124,16 @@ async function main(argv: string[]): Promise<number> {
 
   const sections = parseSections(v.sections);
   if (v.accent && !/^#[0-9a-f]{6}$/i.test(v.accent)) throw new UsageError("--accent takes a hex colour like #3fb950.");
+  const fontName = (v.font ?? DEFAULT_TYPESET) as TypesetName;
+  if (!TYPESET_NAMES.includes(fontName)) {
+    throw new UsageError(`Unknown --font ${v.font}. Choose from ${TYPESET_NAMES.join(", ")}.`);
+  }
+  let typeset: Typeset = TYPESETS[fontName];
+  if (v["display-font"]) {
+    const file = resolve(v["display-font"]);
+    if (!existsSync(file)) throw new UsageError(`--display-font: ${v["display-font"]} does not exist.`);
+    typeset = withDisplayFont(typeset, file);
+  }
 
   let raw: RawData;
   let gh: GitHub | null = null;
@@ -144,7 +167,7 @@ async function main(argv: string[]): Promise<number> {
   const avatars = gh ? await fetchAvatars(gh, profile) : new Map<string, string>();
   const rendered = render(
     profile,
-    { sections, motion: !v["no-motion"], cursor: !v["no-cursor"], accent: v.accent },
+    { sections, motion: !v["no-motion"], cursor: !v["no-cursor"], accent: v.accent, typeset },
     avatars,
   );
 

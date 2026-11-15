@@ -1,5 +1,6 @@
 import type { Profile } from "../analyze.ts";
 import type { GitHub } from "../github.ts";
+import { DEFAULT_TYPESET, TYPESETS, type Typeset, useTypeset } from "./fonts.ts";
 import { hero } from "./hero.ts";
 import { card, rhythm, strata, traits, upstream } from "./panels.ts";
 import { type Mode, theme } from "./theme.ts";
@@ -12,6 +13,8 @@ export interface RenderOptions {
   motion: boolean;
   /** Draw an accent "_" after the name, like a terminal prompt. */
   cursor?: boolean;
+  /** Faces to draw with; defaults to the pixel preset. */
+  typeset?: Typeset;
   accent?: string;
 }
 
@@ -42,6 +45,7 @@ export function slug(name: string): string {
 }
 
 export function render(p: Profile, opts: RenderOptions, avatars: Map<string, string>): Rendered {
+  useTypeset(opts.typeset ?? TYPESETS[DEFAULT_TYPESET]);
   const files = new Map<string, string>();
   const done: Section[] = [];
   for (const mode of MODES) {

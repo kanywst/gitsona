@@ -9,6 +9,7 @@
   "files": [
     "dist",
     "fonts/*.ttf",
+    "fonts/*.otf",
     "fonts/OFL-*.txt"
   ],
   "engines": {

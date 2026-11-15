@@ -90,6 +90,12 @@ describe("cli", () => {
     expect(existsSync(join(out, ".github/workflows/gitsona.yml"))).toBe(true);
   });
 
+  test("rejects an unknown typeface preset", () => {
+    const r = spawnSync("bun", ["src/cli.ts", "--font", "comic", "--from-raw", "x"], { encoding: "utf8" });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("Unknown --font comic");
+  });
+
   test("rejects unknown sections with a usage error", () => {
     const r = spawnSync("bun", ["src/cli.ts", "--sections", "hero,nope", "--from-raw", "x"], { encoding: "utf8" });
     expect(r.status).toBe(2);
