@@ -3,8 +3,10 @@
 Draws your GitHub profile README from what you actually do on GitHub. One command, no hosted service.
 
 ```sh
-npx github:kanywst/gitsona
+npx --allow-git=all github:kanywst/gitsona
 ```
+
+`--allow-git=all` is needed on npm 12 and later, which refuses packages fetched from git by default. Older npm ignores it.
 
 It reads your public activity, works out what you build and how you work, and writes a `README.md` and a folder of SVGs to `./<you>`. Push that folder to your `<you>/<you>` repository and it shows on your profile.
 
@@ -44,7 +46,7 @@ The example above and below is the author's own profile, drawn from live data.
 ## Usage
 
 ```sh
-npx github:kanywst/gitsona [user] [options]
+npx --allow-git=all github:kanywst/gitsona [user] [options]
 ```
 
 With no user, it draws the account behind your token. The token comes from `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`.

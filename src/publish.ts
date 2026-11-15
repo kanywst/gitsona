@@ -73,7 +73,7 @@ jobs:
         with:
           node-version: 22
       - name: Redraw the profile
-        run: npx -y github:kanywst/gitsona "\${{ github.repository_owner }}" --out . --quiet
+        run: npx -y --allow-git=all github:kanywst/gitsona "\${{ github.repository_owner }}" --out . --quiet
         env:
           # The default token sees public activity. For private contribution counts, add a
           # fine-grained token with read access to your repos as the GITSONA_TOKEN secret.
