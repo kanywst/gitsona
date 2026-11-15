@@ -81,8 +81,8 @@ export interface RawData {
   prTotals: { authored: number; external: number; externalMerged: number };
   externalIssues: number;
   commitTimes: CommitTime[];
-  /** True when the commit-time sample stopped because the search API caps results at 1000. */
-  commitTimesCapped: boolean;
+  /** Public commits on default branches per calendar month, last 12 months (commit search). */
+  monthlyCommits: { month: string; commits: number }[];
 }
 
 const REPO_FIELDS = `
@@ -209,7 +209,7 @@ export async function collect(gh: GitHub, login: string, opts: CollectOptions): 
   const externalIssues = await searchCount(gh, `author:${u.login} is:issue -user:${u.login}`);
 
   log("commit times");
-  const { times, capped } = await collectCommitTimes(gh, u.login);
+  const { times, monthly } = await collectCommitTimes(gh, u.login);
 
   return {
     fetchedAt: new Date().toISOString(),
@@ -236,7 +236,7 @@ export async function collect(gh: GitHub, login: string, opts: CollectOptions): 
     },
     externalIssues,
     commitTimes: times,
-    commitTimesCapped: capped,
+    monthlyCommits: monthly,
   };
 }
 
@@ -367,20 +367,29 @@ async function collectPRs(gh: GitHub, login: string): Promise<{ prs: ExternalPR[
   return { prs, authored };
 }
 
-async function collectCommitTimes(gh: GitHub, login: string): Promise<{ times: CommitTime[]; capped: boolean }> {
+async function collectCommitTimes(
+  gh: GitHub,
+  login: string,
+): Promise<{ times: CommitTime[]; monthly: { month: string; commits: number }[] }> {
+  // One page per calendar month for the last 12 months. A single newest-first query would hit
+  // the 1000-result cap within days for a busy account and describe only the latest sprint.
   const times: CommitTime[] = [];
-  let total = 0;
-  for (let page = 1; page <= 10; page++) {
+  const monthly: { month: string; commits: number }[] = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0));
+    const range = `${start.toISOString().slice(0, 10)}..${end.toISOString().slice(0, 10)}`;
+    const q = encodeURIComponent(`author:${login} author-date:${range}`);
     let d: { total_count: number; items: { commit: { author: { date: string } | null } }[] };
     try {
-      d = await gh.rest(`/search/commits?q=${encodeURIComponent(`author:${login}`)}&sort=author-date&order=desc&per_page=100&page=${page}`);
+      d = await gh.rest(`/search/commits?q=${q}&sort=author-date&order=desc&per_page=100`);
     } catch (e) {
-      if (page === 1) throw e;
-      break;
+      if (times.length === 0 && i === 0) throw e;
+      continue;
     }
-    total = d.total_count;
+    monthly.push({ month: start.toISOString().slice(0, 7), commits: d.total_count });
     for (const it of d.items) if (it.commit.author?.date) times.push({ date: it.commit.author.date });
-    if (d.items.length < 100) break;
   }
-  return { times, capped: total > times.length };
+  return { times, monthly };
 }

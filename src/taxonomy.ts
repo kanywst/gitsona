@@ -1,0 +1,179 @@
+/**
+ * Domains a developer can be "about". Each repo votes for domains through its topics, its name and
+ * the words of its description; the vote is weighted by stars and recency in analyze.ts.
+ */
+export interface Domain {
+  id: string;
+  /** How the domain reads in a list: "identity, authorization and security". */
+  label: string;
+  /** How the domain reads after "Builds": "identity tooling". */
+  noun: string;
+  keywords: string[];
+}
+
+export const DOMAINS: Domain[] = [
+  {
+    id: "identity",
+    label: "identity",
+    noun: "identity systems",
+    keywords: [
+      "identity", "oauth", "oauth2", "oidc", "openid", "saml", "jwt", "jose", "spiffe", "spire", "svid",
+      "workload-identity", "authentication", "authn", "iam", "dpop", "token-exchange", "wimse", "sso",
+      "non-human-identity", "agent-identity", "delegation", "passkey", "webauthn", "fido2", "keycloak", "dex",
+      "login", "rfc8693", "scim",
+    ],
+  },
+  {
+    id: "authorization",
+    label: "authorization",
+    noun: "authorization engines",
+    keywords: [
+      "authorization", "authz", "opa", "rego", "cedar", "authzen", "openid-authzen", "zanzibar", "rebac", "abac",
+      "rbac", "policy-engine", "policy-as-code", "access-control", "pdp", "openfga", "spicedb", "biscuit",
+      "permissions", "permission",
+    ],
+  },
+  {
+    id: "security",
+    label: "security",
+    noun: "security tools",
+    keywords: [
+      "security", "devsecops", "prompt-injection", "supply-chain-security", "supply-chain", "sbom", "sigstore",
+      "cosign", "secrets", "secret-manager", "credentials", "password", "password-strength", "pki", "tls", "ssl",
+      "x509", "certificates", "mtls", "mutual-tls", "osint", "privacy", "pii", "vulnerability", "cve", "zero-trust",
+      "mitm", "brute-force", "agent-security", "ai-security", "cryptography", "crypto", "pentest", "fuzzing",
+      "malware", "ctf", "sast", "sarif", "audit-log", "audit-trail", "lethal-trifecta",
+    ],
+  },
+  {
+    id: "networking",
+    label: "networking",
+    noun: "network tools",
+    keywords: [
+      "network", "networking", "wifi", "pcap", "packet-capture", "gopacket", "dns", "tcp", "udp", "quic",
+      "load-testing", "latency", "traceroute", "ping", "network-monitoring", "diagnostics", "bandwidth", "vpn",
+      "proxy", "speedtest",
+    ],
+  },
+  {
+    id: "cloud",
+    label: "cloud native",
+    noun: "cloud-native infrastructure",
+    keywords: [
+      "kubernetes", "k8s", "cloud-native", "cncf", "envoy", "service-mesh", "kubernetes-operator", "operator",
+      "gitops", "aws", "gcp", "azure", "terraform", "docker", "containers", "helm", "istio", "serverless",
+      "cloudflare", "proxy-wasm", "devops", "finops", "observability", "prometheus", "cert-manager",
+    ],
+  },
+  {
+    id: "ai",
+    label: "AI agents",
+    noun: "tools for AI agents",
+    keywords: [
+      "ai-agents", "ai", "llm", "llm-tools", "llm-agents", "mcp", "model-context-protocol", "claude", "claude-code",
+      "codex", "gemini", "a2a", "agent2agent", "agent-protocol", "anthropic", "openai", "rag", "agentic-coding",
+      "agent-skills", "skill", "chatgpt", "copilot", "agents",
+    ],
+  },
+  {
+    id: "devtools",
+    label: "developer tools",
+    noun: "developer tools",
+    keywords: [
+      "cli", "tui", "developer-tools", "devtools", "terminal", "bubbletea", "ratatui", "charm", "dotfiles",
+      "homebrew", "vscode", "neovim", "vim", "git", "github", "productivity", "shell", "zsh", "workflow",
+      "github-action", "actions", "plugin", "hooks",
+    ],
+  },
+  {
+    id: "web",
+    label: "web",
+    noun: "web apps",
+    keywords: [
+      "react", "vue", "vue3", "vite", "nextjs", "astro", "svelte", "tailwindcss", "frontend", "spa",
+      "static-site", "github-pages", "css", "html", "web", "website", "nuxt", "angular", "remix", "pwa",
+    ],
+  },
+  {
+    id: "knowledge",
+    label: "technical writing",
+    noun: "explainers and guides",
+    keywords: [
+      "documentation", "knowledge-base", "awesome", "awesome-list", "timeline", "explainer", "scrollytelling",
+      "tutorial", "guide", "book", "blog", "learning", "education", "notes", "deep-dive", "mental-models",
+      "best-practices", "history",
+    ],
+  },
+  {
+    id: "data",
+    label: "data",
+    noun: "data tools",
+    keywords: [
+      "database", "sql", "postgres", "postgresql", "sqlite", "analytics", "dashboard", "etl", "data",
+      "data-engineering", "visualization", "duckdb", "bigquery", "kafka", "spark",
+    ],
+  },
+  {
+    id: "ml",
+    label: "machine learning",
+    noun: "machine-learning work",
+    keywords: [
+      "machine-learning", "deep-learning", "pytorch", "tensorflow", "ml", "neural-network", "computer-vision",
+      "nlp", "transformers", "jupyter", "kaggle",
+    ],
+  },
+  {
+    id: "systems",
+    label: "systems",
+    noun: "systems software",
+    keywords: [
+      "wasm", "webassembly", "zig", "kernel", "embedded", "compiler", "interpreter", "os", "low-level",
+      "performance", "runtime", "emulator", "assembly", "ebpf", "firmware",
+    ],
+  },
+  {
+    id: "mobile",
+    label: "mobile",
+    noun: "mobile apps",
+    keywords: ["ios", "android", "swift", "swiftui", "kotlin", "flutter", "react-native", "mobile"],
+  },
+  {
+    id: "games",
+    label: "games",
+    noun: "games",
+    keywords: ["game", "games", "gamedev", "unity", "godot", "bevy", "game-engine", "pixel-art"],
+  },
+];
+
+const STOP = new Set(["a", "an", "the", "and", "or", "for", "of", "to", "in", "on", "with", "your", "you", "it", "is"]);
+
+/** Lowercased words and hyphenated tokens from free text. */
+export function tokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/[^a-z0-9+\-]+/)
+    .flatMap((t) => [t, ...t.split("-")])
+    .filter((t) => t.length > 1 && !STOP.has(t));
+}
+
+/** Scores 0..n per domain for one bag of tokens. Topics count double: they are deliberate labels. */
+export function domainVotes(topics: string[], words: string[]): Map<string, number> {
+  const out = new Map<string, number>();
+  const topicSet = new Set(topics.map((t) => t.toLowerCase()));
+  const wordSet = new Set(words);
+  for (const d of DOMAINS) {
+    let v = 0;
+    for (const k of d.keywords) {
+      if (topicSet.has(k)) v += 2;
+      else if (wordSet.has(k)) v += 1;
+    }
+    if (v > 0) out.set(d.id, v);
+  }
+  return out;
+}
+
+export function domainById(id: string): Domain {
+  const d = DOMAINS.find((x) => x.id === id);
+  if (!d) throw new Error(`unknown domain ${id}`);
+  return d;
+}
