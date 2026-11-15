@@ -5,8 +5,15 @@ import { type Section, slug } from "./render/index.ts";
 export const START = "<!-- gitsona:start -->";
 export const END = "<!-- gitsona:end -->";
 
+/** Attribute-safe, and safe inside Markdown link text: brackets would end the link early. */
 function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/\[/g, "&#91;")
+    .replace(/\]/g, "&#93;");
 }
 
 /** Markdown link text: brackets and backticks would break the link. */
@@ -51,8 +58,8 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
   const contact: string[] = [];
   if (p.website) contact.push(`[${p.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}](${p.website})`);
   if (p.twitter) contact.push(`[@${p.twitter} on X](https://x.com/${p.twitter})`);
-  if (contact.length) intro.push(contact.join(" &nbsp; "));
-  if (intro.length) out.push(intro.join("  \n"), "");
+  if (contact.length) intro.push(contact.join(", "));
+  for (const para of intro) out.push(para, "");
 
   if (has("traits")) {
     out.push(`### Working style`, "", picture(dir, "traits", workingStyleAlt(p)), "");
@@ -66,7 +73,8 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
       p.landmarks
         .map(
           (r) =>
-            `<a href="${r.url}">${picture(dir, `project-${slug(r.name)}`, `${r.name}: ${r.description ?? ""}`, "49%").replace(/\n\s*/g, "")}</a>`,
+            // A Markdown link around a one-line <picture> keeps the card clickable without <a>.
+            `[${picture(dir, `project-${slug(r.name)}`, `${r.name}: ${r.description ?? ""}`, "49%").replace(/\n\s*/g, "")}](${r.url})`,
         )
         .join("\n"),
       "",
@@ -84,19 +92,16 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
     const recent = p.upstream.recentMerged.slice(0, 5);
     if (recent.length) {
       out.push(
-        `<details>`,
-        `<summary>Recently merged</summary>`,
+        "Recently merged:",
         "",
         ...recent.map((pr) => `- [${mdText(pr.title)}](${pr.url}) in \`${pr.repo}\`, ${fmtDate(pr.mergedAt!)}`),
-        "",
-        `</details>`,
         "",
       );
     }
   }
 
   out.push(
-    `<sub>Drawn by [gitsona](https://github.com/kanywst/gitsona) from public GitHub activity on ${fmtDate(p.generatedAt)}.</sub>`,
+    `Drawn by [gitsona](https://github.com/kanywst/gitsona) from public GitHub activity on ${fmtDate(p.generatedAt)}.`,
     "",
     END,
   );

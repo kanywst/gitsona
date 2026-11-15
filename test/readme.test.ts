@@ -29,6 +29,18 @@ describe("readme block", () => {
     expect(block).toMatch(/alt="[^"]*dexidp\/dex \(2\)/);
   });
 
+  test("uses no inline HTML beyond picture, source and img", () => {
+    const tags = new Set([...block.matchAll(/(?<!\\)<\/?([a-z]+)/g)].map((m) => m[1]));
+    expect([...tags].sort()).toEqual(["img", "picture", "source"]);
+  });
+
+  test("brackets in alt text cannot end a project link early", () => {
+    const raw = fixture();
+    raw.repos[0]!.description = "Engine [beta] for policies";
+    const b = readmeBlock(analyze(raw), { sections: ["projects"], dir: "." });
+    expect(b).toContain("Engine &#91;beta&#93; for policies");
+  });
+
   test("omits the bio when asked", () => {
     expect(readmeBlock(p, { sections: ["hero"], dir: ".", bio: null })).not.toContain("care");
   });
