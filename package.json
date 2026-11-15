@@ -9,7 +9,6 @@
   "files": [
     "dist",
     "fonts/*.ttf",
-    "fonts/metrics.json",
     "fonts/OFL-*.txt"
   ],
   "engines": {

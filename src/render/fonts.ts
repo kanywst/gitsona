@@ -1,7 +1,13 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { subsetFont } from "./subset.ts";
+import * as hb from "harfbuzzjs";
+
+/**
+ * Text is shaped with HarfBuzz and drawn as glyph outlines. GitHub serves README images with a
+ * `default-src 'none'` CSP, so a font embedded in the SVG may never load; outlines always render,
+ * keep real kerning, and look the same in every viewer.
+ */
 
 export type FontId = "display" | "text" | "regular" | "medium" | "semibold";
 
@@ -13,21 +19,16 @@ const FILES: Record<FontId, string> = {
   semibold: "plexcond-SemiBold",
 };
 
-/** CSS font stacks. Embedded faces first; system faces cover glyphs outside the Latin subset. */
+/** System stacks for the rare string the bundled faces cannot draw (a name in kanji, say). */
 export const FAMILY: Record<FontId, string> = {
-  display: "'gs-display', 'Avenir Next Condensed', 'Arial Narrow', sans-serif",
-  text: "'gs-text', 'Avenir Next', 'Segoe UI', sans-serif",
-  regular: "'gs-plex', 'IBM Plex Sans Condensed', 'Roboto Condensed', 'Arial Narrow', sans-serif",
-  medium: "'gs-plex', 'IBM Plex Sans Condensed', 'Roboto Condensed', 'Arial Narrow', sans-serif",
-  semibold: "'gs-plex', 'IBM Plex Sans Condensed', 'Roboto Condensed', 'Arial Narrow', sans-serif",
-};
-
-const FACE: Record<FontId, { family: string; weight: number }> = {
-  display: { family: "gs-display", weight: 700 },
-  text: { family: "gs-text", weight: 500 },
-  regular: { family: "gs-plex", weight: 400 },
-  medium: { family: "gs-plex", weight: 500 },
-  semibold: { family: "gs-plex", weight: 600 },
+  display: "'Bricolage Grotesque', 'Avenir Next Condensed', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
+  text: "'Bricolage Grotesque', 'Avenir Next', 'Segoe UI', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
+  regular:
+    "'IBM Plex Sans Condensed', 'Roboto Condensed', 'Arial Narrow', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
+  medium:
+    "'IBM Plex Sans Condensed', 'Roboto Condensed', 'Arial Narrow', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
+  semibold:
+    "'IBM Plex Sans Condensed', 'Roboto Condensed', 'Arial Narrow', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
 };
 
 export const WEIGHT: Record<FontId, number> = {
@@ -39,11 +40,11 @@ export const WEIGHT: Record<FontId, number> = {
 };
 
 function fontsDir(): string {
-  // Works from src/render (dev) and from dist/ (bundled): walk up until fonts/ is found.
+  // Works from src/render (dev) and from dist/render (built): walk up until fonts/ is found.
   let dir = dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 4; i++) {
     try {
-      readFileSync(join(dir, "fonts", "metrics.json"));
+      readFileSync(join(dir, "fonts", `${FILES.regular}.ttf`));
       return join(dir, "fonts");
     } catch {
       dir = dirname(dir);
@@ -52,40 +53,89 @@ function fontsDir(): string {
   throw new Error("gitsona: fonts directory not found next to the package");
 }
 
-let metricsCache: Record<string, { widths: Record<string, number> }> | null = null;
-const fontCache = new Map<FontId, Uint8Array>();
-
-function metrics() {
-  metricsCache ??= JSON.parse(readFileSync(join(fontsDir(), "metrics.json"), "utf8"));
-  return metricsCache!;
+interface Loaded {
+  font: hb.Font;
+  upem: number;
+  paths: Map<number, string>;
 }
 
-/** @font-face rules embedding, per face, only the characters the document uses. */
-export function fontFaceCss(used: Map<FontId, Set<string>>): string {
-  return [...used.entries()]
-    .map(([id, chars]) => {
-      let font = fontCache.get(id);
-      if (!font) {
-        font = new Uint8Array(readFileSync(join(fontsDir(), `${FILES[id]}.ttf`)));
-        fontCache.set(id, font);
-      }
-      // Space and the ellipsis/digits are cheap and keep later edits from missing glyphs.
-      const sub = subsetFont(font, new Set([...chars, " "])) ?? font;
-      const f = FACE[id];
-      return `@font-face{font-family:'${f.family}';font-weight:${f.weight};src:url(data:font/ttf;base64,${Buffer.from(sub).toString("base64")}) format('truetype')}`;
-    })
-    .join("");
-}
+const loaded = new Map<FontId, Loaded>();
 
-/** Advance width in px of `text` set in `font` at `size`. Glyphs outside the subset count as 0.6em. */
-export function measure(text: string, font: FontId, size: number, letterSpacing = 0): number {
-  const w = metrics()[FILES[font]]!.widths;
-  let em = 0;
-  for (const ch of text) {
-    const cw = w[ch];
-    em += cw ?? (ch.charCodeAt(0) > 0x2e80 ? 1 : 0.6);
+function load(id: FontId): Loaded {
+  let l = loaded.get(id);
+  if (!l) {
+    const face = new hb.Face(new hb.Blob(new Uint8Array(readFileSync(join(fontsDir(), `${FILES[id]}.ttf`)))));
+    l = { font: new hb.Font(face), upem: face.upem, paths: new Map() };
+    loaded.set(id, l);
   }
-  return em * size + letterSpacing * Math.max(0, [...text].length - 1);
+  return l;
+}
+
+export interface Glyph {
+  gid: number;
+  /** Pen position in font units. */
+  x: number;
+  y: number;
+}
+
+export interface Shaped {
+  glyphs: Glyph[];
+  /** Advance width in font units. */
+  width: number;
+  upem: number;
+  /** False when some character has no glyph in the bundled face. */
+  complete: boolean;
+}
+
+const shapeCache = new Map<string, Shaped>();
+
+export function shape(text: string, id: FontId, tnum = false): Shaped {
+  const key = `${id}\u0001${tnum ? 1 : 0}\u0001${text}`;
+  const hit = shapeCache.get(key);
+  if (hit) return hit;
+  const { font, upem } = load(id);
+  const buf = new hb.Buffer();
+  buf.addText(text);
+  buf.guessSegmentProperties();
+  hb.shape(font, buf, tnum ? [new hb.Feature("tnum"), new hb.Feature("lnum")] : []);
+  const glyphs: Glyph[] = [];
+  let x = 0;
+  let complete = true;
+  const chars = [...text];
+  for (const g of buf.getGlyphInfosAndPositions()) {
+    if (g.codepoint === 0 && !/\s/.test(chars[g.cluster] ?? text.charAt(g.cluster))) complete = false;
+    glyphs.push({ gid: g.codepoint, x: x + (g.xOffset ?? 0), y: g.yOffset ?? 0 });
+    x += g.xAdvance ?? 0;
+  }
+  const out = { glyphs, width: x, upem, complete };
+  shapeCache.set(key, out);
+  return out;
+}
+
+/** Outline of one glyph in font units, y up, numbers rounded to integers. */
+export function glyphPath(id: FontId, gid: number): string {
+  const l = load(id);
+  let d = l.paths.get(gid);
+  if (d === undefined) {
+    d = l.font
+      .glyphToPath(gid)
+      .replace(/-?\d+\.\d+/g, (n) => String(Math.round(Number(n))))
+      .replace(/,/g, " ");
+    l.paths.set(gid, d);
+  }
+  return d;
+}
+
+/** Advance width in px of `text` set in `font` at `size`. */
+export function measure(text: string, font: FontId, size: number, letterSpacing = 0): number {
+  const s = shape(text, font);
+  if (!s.complete) {
+    // Fallback text: estimate from the character count, wide characters counting as one em.
+    let em = 0;
+    for (const ch of text) em += ch.charCodeAt(0) > 0x2e80 ? 1 : 0.55;
+    return em * size + letterSpacing * Math.max(0, [...text].length - 1);
+  }
+  return (s.width / s.upem) * size + letterSpacing * Math.max(0, s.glyphs.length - 1);
 }
 
 /** Greedy word wrap; the last allowed line ends with an ellipsis if text remains. */

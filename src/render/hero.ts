@@ -116,15 +116,15 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
     peak =
       `<g class="pk">` +
       `<path d="M${r1(px)} ${r1(py - 7)}l6.5 11h-13z" fill="${t.accent}" stroke="${t.bg}" stroke-width="2" paint-order="stroke"/>` +
-      `<g stroke="${t.bg}" stroke-width="5" stroke-linejoin="round" paint-order="stroke">` +
       doc.text(lx, py + 3, label, {
         font: "medium",
         size: 13,
         fill: t.ink,
         anchor: right ? "start" : "end",
         tnum: true,
+        halo: { color: t.bg, width: 2.5 },
       }) +
-      `</g></g>`;
+      `</g>`;
   }
 
   // Left column: who, what, and a cartographic legend of the numbers that back it.
@@ -188,6 +188,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
       size: 12,
       fill: t.faint,
       anchor: "end",
+      halo: { color: t.bg, width: 3 },
     },
   );
 

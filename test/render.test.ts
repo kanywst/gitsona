@@ -1,10 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
 import { analyze } from "../src/analyze.ts";
 import { contours, makeField, normalize } from "../src/render/contour.ts";
-import { ellipsize, measure, wrap } from "../src/render/fonts.ts";
+import { ellipsize, measure, shape, wrap } from "../src/render/fonts.ts";
 import { render, SECTIONS } from "../src/render/index.ts";
-import { subsetFont } from "../src/render/subset.ts";
 import { contrast, hexToHsl, theme } from "../src/render/theme.ts";
 import { fixture } from "./fixture.ts";
 
@@ -34,13 +32,27 @@ describe("text metrics", () => {
   });
 });
 
-describe("font subsetting", () => {
-  test("produces a much smaller valid TrueType font", () => {
-    const src = new Uint8Array(readFileSync(new URL("../fonts/plexcond-Regular.ttf", import.meta.url)));
-    const out = subsetFont(src, "gitsona 123");
-    expect(out).not.toBeNull();
-    expect(out!.length).toBeLessThan(src.length / 3);
-    expect([...out!.slice(0, 4)]).toEqual([0, 1, 0, 0]);
+describe("outlined text", () => {
+  test("tabular figures share one width", () => {
+    expect(shape("1111", "regular", true).width).toBe(shape("8888", "regular", true).width);
+  });
+
+  test("text becomes glyph outlines with each glyph defined once", () => {
+    const p = analyze(fixture());
+    const svg = render(p, { sections: ["traits"], motion: false }, new Map()).files.get("traits-dark.svg")!;
+    expect(svg).not.toContain("<text");
+    expect(svg).not.toContain("@font-face");
+    const ids = [...svg.matchAll(/<path id="([a-z]\d+)"/g)].map((m) => m[1]);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const m of svg.matchAll(/href="#([a-z]\d+)"/g)) expect(ids).toContain(m[1]);
+  });
+
+  test("characters outside the bundled faces fall back to system text", () => {
+    const raw = fixture();
+    raw.user.name = "丹羽 Ada";
+    const svg = render(analyze(raw), { sections: ["hero"], motion: false }, new Map()).files.get("hero-dark.svg")!;
+    expect(svg).toContain(">丹羽 Ada</text>");
+    expect(shape("丹羽", "display").complete).toBe(false);
   });
 });
 
