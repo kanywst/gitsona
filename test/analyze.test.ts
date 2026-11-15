@@ -52,6 +52,25 @@ describe("analyze", () => {
   });
 });
 
+describe("privacy", () => {
+  test("private repositories shape the numbers but never appear by name", () => {
+    const raw = fixture();
+    raw.repos.push({
+      ...raw.repos[0]!,
+      name: "secret-plan",
+      nameWithOwner: "ada/secret-plan",
+      description: "Do not show this",
+      isPrivate: true,
+      stars: 999,
+    });
+    const p = analyze(raw);
+    const text = JSON.stringify({ l: p.landmarks, r: p.recent, h: p.headline, s: p.summary, u: p.upstream });
+    expect(text).not.toContain("secret-plan");
+    expect(text).not.toContain("Do not show this");
+    expect(p.totals.repos).toBe(5);
+  });
+});
+
 describe("helpers", () => {
   test("localTime keeps the wall clock from the ISO offset", () => {
     expect(localTime("2026-11-16T00:55:35.000+09:00")).toEqual({ weekday: 0, hour: 0 });

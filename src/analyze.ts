@@ -134,7 +134,7 @@ export function analyze(raw: RawData, now = new Date(raw.fetchedAt)): Profile {
     upstream,
     landmarks: pickLandmarks(raw, live, login),
     recent: live
-      .filter((r) => r.pushedAt && now.getTime() - Date.parse(r.pushedAt) < 30 * DAY)
+      .filter((r) => !r.isPrivate && r.pushedAt && now.getTime() - Date.parse(r.pushedAt) < 30 * DAY)
       .sort((a, b) => Date.parse(b.pushedAt!) - Date.parse(a.pushedAt!))
       .slice(0, 4),
     totals: {
