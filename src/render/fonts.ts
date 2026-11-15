@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as hb from "harfbuzzjs";
 
@@ -11,40 +11,62 @@ import * as hb from "harfbuzzjs";
 
 export type FontId = "display" | "text" | "regular" | "medium" | "semibold";
 
-const FILES: Record<FontId, string> = {
-  display: "bric-display",
-  text: "bric-text",
-  regular: "plexcond-Regular",
-  medium: "plexcond-Medium",
-  semibold: "plexcond-SemiBold",
+/** One role: a font file and, for a variable font, where to pin its axes. */
+export interface Face {
+  /** File name inside the package's fonts/ directory, or an absolute path. */
+  file: string;
+  vars?: Record<string, number>;
+  /** CSS stack for the rare string the file cannot draw (a name in kanji, say). */
+  system: string;
+  weight: number;
+  /** Letter-spacing in em for large settings of this face. */
+  tracking?: number;
+}
+
+export interface Typeset {
+  name: string;
+  faces: Record<FontId, Face>;
+}
+
+const CJK = "'Hiragino Sans', 'Noto Sans CJK JP', sans-serif";
+
+export const BRICOLAGE: Typeset = {
+  name: "bricolage",
+  faces: {
+    display: {
+      file: "bric-display.ttf",
+      system: `'Bricolage Grotesque', 'Avenir Next Condensed', ${CJK}`,
+      weight: 700,
+      tracking: -0.02,
+    },
+    text: { file: "bric-text.ttf", system: `'Bricolage Grotesque', 'Avenir Next', ${CJK}`, weight: 500 },
+    regular: { file: "plexcond-Regular.ttf", system: `'IBM Plex Sans Condensed', 'Arial Narrow', ${CJK}`, weight: 400 },
+    medium: { file: "plexcond-Medium.ttf", system: `'IBM Plex Sans Condensed', 'Arial Narrow', ${CJK}`, weight: 500 },
+    semibold: {
+      file: "plexcond-SemiBold.ttf",
+      system: `'IBM Plex Sans Condensed', 'Arial Narrow', ${CJK}`,
+      weight: 600,
+    },
+  },
 };
 
-/** System stacks for the rare string the bundled faces cannot draw (a name in kanji, say). */
-export const FAMILY: Record<FontId, string> = {
-  display: "'Bricolage Grotesque', 'Avenir Next Condensed', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
-  text: "'Bricolage Grotesque', 'Avenir Next', 'Segoe UI', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
-  regular:
-    "'IBM Plex Sans Condensed', 'Roboto Condensed', 'Arial Narrow', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
-  medium:
-    "'IBM Plex Sans Condensed', 'Roboto Condensed', 'Arial Narrow', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
-  semibold:
-    "'IBM Plex Sans Condensed', 'Roboto Condensed', 'Arial Narrow', 'Hiragino Sans', 'Noto Sans CJK JP', sans-serif",
-};
+let current: Typeset = BRICOLAGE;
 
-export const WEIGHT: Record<FontId, number> = {
-  display: 700,
-  text: 500,
-  regular: 400,
-  medium: 500,
-  semibold: 600,
-};
+/** Switches the faces every later shape() and glyphPath() call uses. */
+export function useTypeset(t: Typeset): void {
+  current = t;
+}
+
+export function typeset(): Typeset {
+  return current;
+}
 
 function fontsDir(): string {
   // Works from src/render (dev) and from dist/render (built): walk up until fonts/ is found.
   let dir = dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 4; i++) {
     try {
-      readFileSync(join(dir, "fonts", `${FILES.regular}.ttf`));
+      readFileSync(join(dir, "fonts", "OFL-IBMPlexSansCondensed.txt"));
       return join(dir, "fonts");
     } catch {
       dir = dirname(dir);
@@ -59,14 +81,24 @@ interface Loaded {
   paths: Map<number, string>;
 }
 
-const loaded = new Map<FontId, Loaded>();
+const loaded = new Map<string, Loaded>();
+const blobs = new Map<string, hb.Face>();
 
 function load(id: FontId): Loaded {
-  let l = loaded.get(id);
+  const f = current.faces[id];
+  const key = `${f.file}|${JSON.stringify(f.vars ?? {})}`;
+  let l = loaded.get(key);
   if (!l) {
-    const face = new hb.Face(new hb.Blob(new Uint8Array(readFileSync(join(fontsDir(), `${FILES[id]}.ttf`)))));
-    l = { font: new hb.Font(face), upem: face.upem, paths: new Map() };
-    loaded.set(id, l);
+    const path = isAbsolute(f.file) ? f.file : join(fontsDir(), f.file);
+    let face = blobs.get(path);
+    if (!face) {
+      face = new hb.Face(new hb.Blob(new Uint8Array(readFileSync(path))));
+      blobs.set(path, face);
+    }
+    const font = new hb.Font(face);
+    if (f.vars) font.setVariations(Object.entries(f.vars).map(([tag, v]) => new hb.Variation(tag, v)));
+    l = { font, upem: face.upem, paths: new Map() };
+    loaded.set(key, l);
   }
   return l;
 }
@@ -90,7 +122,8 @@ export interface Shaped {
 const shapeCache = new Map<string, Shaped>();
 
 export function shape(text: string, id: FontId, tnum = false): Shaped {
-  const key = `${id}\u0001${tnum ? 1 : 0}\u0001${text}`;
+  const f = current.faces[id];
+  const key = `${f.file}|${JSON.stringify(f.vars ?? {})}\u0001${tnum ? 1 : 0}\u0001${text}`;
   const hit = shapeCache.get(key);
   if (hit) return hit;
   const { font, upem } = load(id);

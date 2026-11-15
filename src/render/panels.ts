@@ -13,7 +13,10 @@ const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 /** Four spectra, each with the evidence that placed the marker. */
 export function traits(p: Profile, t: Theme): string {
   const cellW = (W - PAD * 2 - 72) / 2;
-  const rowH = 120;
+  // Evidence wraps to two lines when a wide face needs it; every row then gets the same height.
+  const evidence = p.traits.map((tr) => wrap(tr.evidence, "regular", 17, cellW, 2));
+  const extra = Math.max(...evidence.map((e) => e.length)) > 1 ? 24 : 0;
+  const rowH = 120 + extra;
   const H = 48 + Math.ceil(p.traits.length / 2) * rowH + 8;
   const doc = new Doc(W, H, t, `How ${p.displayName} works`);
   const out: string[] = [];
@@ -41,7 +44,9 @@ export function traits(p: Profile, t: Theme): string {
     out.push(
       `<line x1="${r1(cx)}" y1="${ty}" x2="${r1(mx)}" y2="${ty}" stroke="${t.accent}" stroke-width="2.5" stroke-linecap="round"/>`,
       `<circle cx="${r1(mx)}" cy="${ty}" r="7" fill="${t.accent}" stroke="${t.bg}" stroke-width="3"/>`,
-      doc.text(x, ty + 40, ellipsize(tr.evidence, "regular", 17, cellW), { font: "regular", size: 17, fill: t.muted }),
+      ...evidence[i]!.map((line, k) =>
+        doc.text(x, ty + 40 + k * 24, line, { font: "regular", size: 17, fill: t.muted }),
+      ),
     );
   });
   return doc.render(out.join(""));

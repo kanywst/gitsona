@@ -1,4 +1,4 @@
-import { FAMILY, type FontId, glyphPath, shape, WEIGHT } from "./fonts.ts";
+import { type FontId, glyphPath, shape, typeset } from "./fonts.ts";
 import type { Theme } from "./theme.ts";
 
 export function esc(s: string): string {
@@ -74,8 +74,8 @@ export class Doc {
     const attrs = [
       `x="${r1(x)}"`,
       `y="${r1(y)}"`,
-      `font-family="${FAMILY[o.font]}"`,
-      `font-weight="${WEIGHT[o.font]}"`,
+      `font-family="${esc(typeset().faces[o.font].system)}"`,
+      `font-weight="${typeset().faces[o.font].weight}"`,
       `font-size="${o.size}"`,
       `fill="${o.fill}"`,
     ];

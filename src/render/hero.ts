@@ -1,11 +1,11 @@
 import type { Profile } from "../analyze.ts";
 import { contours, makeField, normalize } from "./contour.ts";
-import { ellipsize, fitSize, measure, wrap } from "./fonts.ts";
+import { ellipsize, fitSize, measure, typeset, wrap } from "./fonts.ts";
 import { Doc, esc, fmt, r1, rng } from "./svg.ts";
 import type { Theme } from "./theme.ts";
 
 const W = 1200;
-const H = 480;
+const H_MIN = 480;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function fmtDate(iso: string): string {
@@ -17,7 +17,16 @@ export function fmtDate(iso: string): string {
  * The last twelve months of contributions as relief: every day is a hill whose height is its
  * contribution count, west to east is time, and the contour lines are drawn once when the image loads.
  */
-export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): string {
+export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: boolean } = {}): string {
+  // Text first: the card grows to fit wider faces or longer headlines instead of overlapping.
+  const left = 56;
+  const colW = 520;
+  const nameSize = fitSize(p.displayName, "display", 104, colW + 60, 48);
+  const headline = wrap(p.headline, "text", 30, colW, 2);
+  const summary = wrap(p.summary, "regular", 19, colW - 10, 3);
+  const textBottom = 76 + 22 + nameSize * 0.7 + 44 + headline.length * 35 + 2 + summary.length * 26;
+  const legendRows = 4;
+  const H = Math.max(H_MIN, Math.ceil(textBottom - 26 + 22 + (legendRows - 1) * 28 + 70));
   const doc = new Doc(W, H, t, `${p.displayName} (@${p.login}): ${p.headline}`);
   const days = p.lastYear.days;
   const max = Math.max(1, ...days.map((d) => d.count));
@@ -128,25 +137,27 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
   }
 
   // Left column: who, what, and a cartographic legend of the numbers that back it.
-  const left = 56;
-  const colW = 520;
   const joined = new Date(p.joined);
   const since = `@${p.login} on GitHub since ${MONTHS[joined.getUTCMonth()]} ${joined.getUTCFullYear()}`;
-  const nameSize = fitSize(p.displayName, "display", 104, colW + 60, 48);
-  const headline = wrap(p.headline, "text", 30, colW, 2);
-  const summary = wrap(p.summary, "regular", 19, colW - 10, 3);
   let y = 76;
   const head: string[] = [];
   head.push(doc.text(left, y, ellipsize(since, "medium", 17, colW), { font: "medium", size: 17, fill: t.muted }));
   y += 22 + nameSize * 0.7;
+  const track = nameSize * (typeset().faces.display.tracking ?? 0);
   head.push(
     doc.text(left - nameSize * 0.04, y, p.displayName, {
       font: "display",
       size: nameSize,
       fill: t.ink,
-      tracking: -nameSize * 0.02,
+      tracking: track,
     }),
   );
+  if (opts.cursor) {
+    const nameW = measure(p.displayName, "display", nameSize, track);
+    head.push(
+      doc.text(left - nameSize * 0.04 + nameW + track, y, "_", { font: "display", size: nameSize, fill: t.accent }),
+    );
+  }
   y += 44;
   for (const l of headline) {
     head.push(doc.text(left, y, l, { font: "text", size: 30, fill: t.ink, tracking: -0.4 }));
