@@ -6,7 +6,7 @@
   "bin": {
     "gitsona": "dist/cli.js"
   },
-  "files": ["dist", "fonts/*.woff2", "fonts/metrics.json", "fonts/OFL-*.txt"],
+  "files": ["dist", "fonts/*.ttf", "fonts/metrics.json", "fonts/OFL-*.txt"],
   "engines": {
     "node": ">=20"
   },
@@ -26,5 +26,8 @@
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "harfbuzzjs": "^1.6.4"
   }
 }
