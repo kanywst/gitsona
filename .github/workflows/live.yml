@@ -1,0 +1,37 @@
+name: Live render
+
+# The unit tests run on a synthetic account. This draws a real one against the
+# live GitHub API once a week, so a schema change or a new rate limit shows up
+# here before it shows up in someone's profile.
+
+on:
+  schedule:
+    - cron: "41 0 * * 1"
+  workflow_dispatch:
+    inputs:
+      user:
+        description: GitHub user to draw
+        required: false
+        default: kanywst
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - run: bun install --frozen-lockfile
+      - name: Draw
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          USER_TO_DRAW: ${{ inputs.user || 'kanywst' }}
+        run: bun src/cli.ts "$USER_TO_DRAW" --out "$RUNNER_TEMP/profile" --preview --save-raw "$RUNNER_TEMP/raw.json"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: live-profile
+          path: ${{ runner.temp }}/profile
+          retention-days: 14
