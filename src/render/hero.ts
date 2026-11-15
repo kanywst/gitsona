@@ -26,7 +26,8 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
   const summary = wrap(p.summary, "regular", 19, colW - 10, 3);
   const textBottom = 76 + 22 + nameSize * 0.7 + 44 + headline.length * 35 + 2 + summary.length * 26;
   const legendRows = 4;
-  const H = Math.max(H_MIN, Math.ceil(textBottom - 26 + 22 + (legendRows - 1) * 28 + 58));
+  // Legend starts 22px under the text, its last row sits 58px above the bottom edge (clear of the months).
+  const H = Math.max(H_MIN, Math.ceil(textBottom + 22 + (legendRows - 1) * 28 + 58));
   const doc = new Doc(W, H, t, `${p.displayName} (@${p.login}): ${p.headline}`);
   const days = p.lastYear.days;
   const max = Math.max(1, ...days.map((d) => d.count));

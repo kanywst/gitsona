@@ -132,7 +132,7 @@ export function analyze(raw: RawData, now = new Date(raw.fetchedAt)): Profile {
     traits,
     rhythm,
     upstream,
-    landmarks: pickLandmarks(raw, live, login),
+    landmarks: pickLandmarks(raw, live, domains, now),
     recent: live
       .filter((r) => !r.isPrivate && r.pushedAt && now.getTime() - Date.parse(r.pushedAt) < 30 * DAY)
       .sort((a, b) => Date.parse(b.pushedAt!) - Date.parse(a.pushedAt!))
@@ -471,20 +471,27 @@ export function buildSummary(
   return `${s}.`;
 }
 
-function pickLandmarks(raw: RawData, live: Repo[], login: string): Repo[] {
-  const pinned = raw.pinned.filter(
-    (r) => r.name.toLowerCase() !== login.toLowerCase() && !isRetired(r) && !r.isPrivate,
-  );
-  const chosen = [...pinned];
-  const seen = new Set(chosen.map((r) => r.nameWithOwner));
-  const rest = live
-    .filter((r) => !seen.has(r.nameWithOwner) && !r.isPrivate && r.description)
-    .sort((a, b) => b.stars - a.stars || Date.parse(b.pushedAt ?? "0") - Date.parse(a.pushedAt ?? "0"));
-  for (const r of rest) {
-    if (chosen.length >= 6) break;
-    chosen.push(r);
-  }
-  return chosen.slice(0, 6);
+/**
+ * Repositories worth a card. GitHub already shows pinned repositories right under the README, so
+ * those are left out. The rest are ranked on stars, shipped releases, recent work and how much they
+ * belong to the person's main domains, so a side project does not outrank the work they are known for.
+ */
+function pickLandmarks(raw: RawData, live: Repo[], domains: Profile["domains"], now: Date): Repo[] {
+  const pinned = new Set(raw.pinned.map((r) => r.nameWithOwner));
+  const main = new Set(domains.slice(0, 3).map((d) => d.id));
+  const score = (r: Repo) => {
+    const votes = domainVotes(r.topics, tokens(`${r.name} ${r.description ?? ""}`));
+    const total = [...votes.values()].reduce((a, b) => a + b, 0);
+    const inMain = [...votes].filter(([id]) => main.has(id)).reduce((a, [, v]) => a + v, 0);
+    const recent = r.pushedAt && now.getTime() - Date.parse(r.pushedAt) < 90 * DAY ? 1 : 0;
+    return Math.log2(1 + r.stars) * 2 + (r.releases > 0 ? 1.5 : 0) + recent + (total ? (inMain / total) * 2.5 : 0);
+  };
+  return live
+    .filter((r) => !pinned.has(r.nameWithOwner) && !r.isPrivate && r.description)
+    .map((r) => ({ r, s: score(r) }))
+    .sort((a, b) => b.s - a.s || (a.r.name < b.r.name ? -1 : a.r.name > b.r.name ? 1 : 0))
+    .slice(0, 6)
+    .map((x) => x.r);
 }
 
 export { DOMAINS };

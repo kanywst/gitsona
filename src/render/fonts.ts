@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as hb from "harfbuzzjs";
@@ -35,22 +35,112 @@ const CJK = "'Hiragino Sans', 'Noto Sans CJK JP', sans-serif";
 const SANS = `'Geist', 'Inter', 'Segoe UI', ${CJK}`;
 const MONO = `'Geist Mono', 'SFMono-Regular', 'Menlo', 'Consolas', ${CJK}`;
 
-/**
- * Geist for headlines, Geist Mono for the name and everything that reads as data: the pairing
- * Vercel ships, and the same family as the author's site. Both are variable; roles pin wght.
- */
-export const GEIST: Typeset = {
-  name: "geist",
-  faces: {
-    display: { file: "GeistMono.ttf", vars: { wght: 400 }, system: MONO, weight: 400, tracking: 0.02 },
-    text: { file: "Geist.ttf", vars: { wght: 500 }, system: SANS, weight: 500, tracking: -0.01 },
-    regular: { file: "GeistMono.ttf", vars: { wght: 400 }, system: MONO, weight: 400, scale: 0.9 },
-    medium: { file: "GeistMono.ttf", vars: { wght: 500 }, system: MONO, weight: 500, scale: 0.9 },
-    semibold: { file: "GeistMono.ttf", vars: { wght: 600 }, system: MONO, weight: 600, scale: 0.9 },
-  },
-};
+const geistMono = (wght: number): Face => ({
+  file: "GeistMono.ttf",
+  vars: { wght },
+  system: MONO,
+  weight: wght,
+  scale: 0.9,
+});
 
-let current: Typeset = GEIST;
+/** Data roles shared by most presets: Geist Mono, slightly smaller because a monospace reads large. */
+const MONO_DATA = { regular: geistMono(400), medium: geistMono(500), semibold: geistMono(600) };
+
+/**
+ * Bundled typesets, chosen with --font. Each pairs a face for the name and headlines with one for
+ * body text and numbers. All are SIL OFL 1.1; licences sit next to the files in fonts/.
+ */
+export const TYPESETS = {
+  pixel: {
+    name: "pixel",
+    faces: {
+      display: { file: "PixelifySans.ttf", vars: { wght: 700 }, system: SANS, weight: 700 },
+      text: { file: "PixelifySans.ttf", vars: { wght: 600 }, system: SANS, weight: 600, scale: 0.92 },
+      ...MONO_DATA,
+    },
+  },
+  geist: {
+    name: "geist",
+    faces: {
+      display: { file: "GeistMono.ttf", vars: { wght: 400 }, system: MONO, weight: 400, tracking: 0.02 },
+      text: { file: "Geist.ttf", vars: { wght: 500 }, system: SANS, weight: 500, tracking: -0.01 },
+      ...MONO_DATA,
+    },
+  },
+  mono: {
+    name: "mono",
+    faces: {
+      display: { file: "GeistMono.ttf", vars: { wght: 700 }, system: MONO, weight: 700, tracking: -0.02 },
+      text: { file: "GeistMono.ttf", vars: { wght: 600 }, system: MONO, weight: 600, scale: 0.92 },
+      ...MONO_DATA,
+    },
+  },
+  grotesk: {
+    name: "grotesk",
+    faces: {
+      display: { file: "SpaceGrotesk.ttf", vars: { wght: 700 }, system: SANS, weight: 700, tracking: -0.03 },
+      text: { file: "SpaceGrotesk.ttf", vars: { wght: 500 }, system: SANS, weight: 500 },
+      regular: { file: "SpaceMono-Regular.ttf", system: MONO, weight: 400, scale: 0.88 },
+      medium: { file: "SpaceMono-Regular.ttf", system: MONO, weight: 400, scale: 0.88 },
+      semibold: { file: "SpaceMono-Bold.ttf", system: MONO, weight: 700, scale: 0.88 },
+    },
+  },
+  rounded: {
+    name: "rounded",
+    faces: {
+      display: { file: "Rubik.ttf", vars: { wght: 800 }, system: SANS, weight: 800, tracking: -0.02 },
+      text: { file: "Rubik.ttf", vars: { wght: 500 }, system: SANS, weight: 500 },
+      regular: { file: "Rubik.ttf", vars: { wght: 400 }, system: SANS, weight: 400 },
+      medium: { file: "Rubik.ttf", vars: { wght: 500 }, system: SANS, weight: 500 },
+      semibold: { file: "Rubik.ttf", vars: { wght: 600 }, system: SANS, weight: 600 },
+    },
+  },
+  retro: {
+    name: "retro",
+    faces: {
+      display: { file: "DepartureMono.otf", system: MONO, weight: 400 },
+      text: { file: "DepartureMono.otf", system: MONO, weight: 400, scale: 0.9 },
+      ...MONO_DATA,
+    },
+  },
+} satisfies Record<string, Typeset>;
+
+export type TypesetName = keyof typeof TYPESETS;
+export const TYPESET_NAMES = Object.keys(TYPESETS) as TypesetName[];
+export const DEFAULT_TYPESET: TypesetName = "pixel";
+
+/** A preset with the name and headline faces swapped for a font file the user brings. */
+export function withDisplayFont(base: Typeset, file: string): Typeset {
+  // A wght axis, when the face has one, pins the weights the roles promise; static faces ignore it.
+  const display: Face = { file, vars: { wght: 700 }, system: SANS, weight: 700 };
+  const text: Face = { file, vars: { wght: 500 }, system: SANS, weight: 500 };
+  return { name: `${base.name}+custom`, faces: { ...base.faces, display, text } };
+}
+
+/** Why a font file cannot be used, or null when HarfBuzz can shape Latin text with it. */
+export function fontFileProblem(file: string): string | null {
+  let bytes: Uint8Array;
+  try {
+    if (!statSync(file).isFile()) return "is not a file";
+    bytes = new Uint8Array(readFileSync(file));
+  } catch {
+    return "cannot be read";
+  }
+  // WOFF and WOFF2 are compressed web formats HarfBuzz does not open.
+  const tag = String.fromCharCode(...bytes.slice(0, 4));
+  if (tag === "wOFF" || tag === "wOF2") return "is a web font (WOFF); use the .ttf or .otf";
+  // sfnt magic: TrueType outlines, CFF outlines, Apple 'true', or a collection.
+  if (!["\u0000\u0001\u0000\u0000", "OTTO", "true", "ttcf"].includes(tag)) return "is not a TrueType or OpenType font";
+  const face = new hb.Face(new hb.Blob(bytes));
+  const buf = new hb.Buffer();
+  buf.addText("Ag");
+  buf.guessSegmentProperties();
+  hb.shape(new hb.Font(face), buf, []);
+  if (buf.getGlyphInfos().some((g) => g.codepoint === 0)) return "has no Latin letters";
+  return null;
+}
+
+let current: Typeset = TYPESETS[DEFAULT_TYPESET];
 
 /** Switches the faces every later shape() and glyphPath() call uses. */
 export function useTypeset(t: Typeset): void {

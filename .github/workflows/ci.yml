@@ -48,7 +48,7 @@ jobs:
         run: |
           npm pack --silent > tarball.txt
           tar -tzf "$(cat tarball.txt)" > contents.txt
-          for f in package/dist/cli.js package/fonts/Geist.ttf package/fonts/GeistMono.ttf package/fonts/OFL-Geist.txt; do
+          for f in package/dist/cli.js package/fonts/PixelifySans.ttf package/fonts/GeistMono.ttf package/fonts/DepartureMono.otf package/fonts/OFL-Geist.txt; do
             grep -qx "$f" contents.txt || { echo "::error::$f is missing from the package"; exit 1; }
           done
           if grep -E '^package/(src|test|out)/' contents.txt; then
@@ -61,6 +61,7 @@ jobs:
           cd "$RUNNER_TEMP"
           gitsona --version
           gitsona --from-raw "$GITHUB_WORKSPACE/raw.json" --out profile --preview --action
+          for f in geist mono grotesk rounded retro; do gitsona --from-raw "$GITHUB_WORKSPACE/raw.json" --out "fonts-$f" --font "$f" --sections hero -q; done
           test -s profile/README.md
           test "$(find profile/gitsona -name '*.svg' | wc -l)" -ge 10
       - name: Keep the rendered images for review
