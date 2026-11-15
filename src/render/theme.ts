@@ -19,7 +19,8 @@ export interface Theme {
  */
 export function theme(mode: Mode, accentHex: string): Theme {
   const [h, s] = hexToHsl(accentHex);
-  const sat = Math.min(Math.max(s, 0.35), 0.78);
+  // Grey language colours (C, Markdown) stay grey instead of picking up a hue they never had.
+  const sat = s < 0.08 ? 0 : Math.min(Math.max(s, 0.35), 0.78);
   if (mode === "dark") {
     return {
       mode,
@@ -30,7 +31,7 @@ export function theme(mode: Mode, accentHex: string): Theme {
       contour: "#1d2c38",
       contourMajor: "#2c4050",
       rule: "#1f2f3c",
-      accent: hslToHex(h, sat, 0.62),
+      accent: readable(h, sat, 0.62, "#0d1620", +1),
       accentSoft: hslToHex(h, sat * 0.6, 0.3),
     };
   }
@@ -43,9 +44,20 @@ export function theme(mode: Mode, accentHex: string): Theme {
     contour: "#d2dcd6",
     contourMajor: "#adbdb5",
     rule: "#d9e2dd",
-    accent: hslToHex(h, sat, 0.36),
+    accent: readable(h, sat, 0.36, "#f1f5f2", -1),
     accentSoft: hslToHex(h, sat * 0.5, 0.85),
   };
+}
+
+/** Walks lightness away from the ground until the accent clears 3.2:1 (WCAG non-text contrast, with margin). */
+function readable(h: number, s: number, l: number, bg: string, dir: 1 | -1): string {
+  let light = l;
+  let hex = hslToHex(h, s, light);
+  while (contrast(hex, bg) < 3.2 && light > 0.05 && light < 0.95) {
+    light += dir * 0.01;
+    hex = hslToHex(h, s, light);
+  }
+  return hex;
 }
 
 export function hexToHsl(hex: string): [number, number, number] {
