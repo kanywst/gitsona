@@ -178,38 +178,15 @@ export async function collect(gh: GitHub, login: string, opts: CollectOptions): 
   const u = profile.user;
   if (!u) throw new GitHubError(`GitHub user "${login}" was not found.`);
 
-  log("repositories");
-  const repos: Repo[] = [];
-  let after: string | null = null;
-  for (;;) {
-    const page: {
-      user: { repositories: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: GqlRepo[] } };
-    } = await gh.graphql(
-      `query($login: String!, $after: String, $privacy: RepositoryPrivacy) {
-        user(login: $login) {
-          repositories(first: 100, after: $after, ownerAffiliations: OWNER, isFork: false, privacy: $privacy,
-                       orderBy: { field: PUSHED_AT, direction: DESC }) {
-            pageInfo { hasNextPage endCursor }
-            nodes { ${REPO_FIELDS} }
-          }
-        }
-      }`,
-      { login: u.login, after, privacy: opts.includePrivate ? null : "PUBLIC" },
-    );
-    repos.push(...page.user.repositories.nodes.map(toRepo));
-    if (!page.user.repositories.pageInfo.hasNextPage) break;
-    after = page.user.repositories.pageInfo.endCursor;
-  }
-
-  log("contribution calendar");
-  const years = await collectYears(gh, u.login, u.contributionsCollection.contributionYears);
-
-  log("pull requests outside your repositories");
-  const { prs, authored } = await collectPRs(gh, u.login);
-  const externalIssues = await searchCount(gh, `author:${u.login} is:issue -user:${u.login}`);
-
-  log("commit times");
-  const { times, monthly } = await collectCommitTimes(gh, u.login);
+  // Independent queries run together; the search API calls inside each stay sequential or pooled.
+  log("repositories, contribution calendar, pull requests and commit times");
+  const [repos, years, { prs, authored }, externalIssues, { times, monthly }] = await Promise.all([
+    collectRepos(gh, u.login, opts.includePrivate),
+    collectYears(gh, u.login, u.contributionsCollection.contributionYears),
+    collectPRs(gh, u.login),
+    searchCount(gh, `author:${u.login} is:issue -user:${u.login}`),
+    collectCommitTimes(gh, u.login),
+  ]);
 
   return {
     fetchedAt: new Date().toISOString(),
@@ -238,6 +215,32 @@ export async function collect(gh: GitHub, login: string, opts: CollectOptions): 
     commitTimes: times,
     monthlyCommits: monthly,
   };
+}
+
+async function collectRepos(gh: GitHub, login: string, includePrivate: boolean): Promise<Repo[]> {
+  const repos: Repo[] = [];
+  let after: string | null = null;
+  for (;;) {
+    const page: {
+      user: { repositories: { pageInfo: { hasNextPage: boolean; endCursor: string | null }; nodes: GqlRepo[] } };
+    } = await gh.graphql(
+      `query($login: String!, $after: String, $privacy: RepositoryPrivacy) {
+        user(login: $login) {
+          repositories(first: 100, after: $after, ownerAffiliations: OWNER, isFork: false, privacy: $privacy,
+                       orderBy: { field: PUSHED_AT, direction: DESC }) {
+            pageInfo { hasNextPage endCursor }
+            nodes { ${REPO_FIELDS} }
+          }
+        }
+      }`,
+      { login, after, privacy: includePrivate ? null : "PUBLIC" },
+    );
+    repos.push(...page.user.repositories.nodes.map(toRepo));
+    if (!page.user.repositories.pageInfo.hasNextPage) break;
+    after = page.user.repositories.pageInfo.endCursor;
+  }
+
+  return repos;
 }
 
 async function collectYears(gh: GitHub, login: string, contributionYears: number[]): Promise<YearContrib[]> {
@@ -376,23 +379,44 @@ async function collectCommitTimes(
 ): Promise<{ times: CommitTime[]; monthly: { month: string; commits: number }[] }> {
   // One page per calendar month for the last 12 months. A single newest-first query would hit
   // the 1000-result cap within days for a busy account and describe only the latest sprint.
+  const now = new Date();
+  const months = Array.from({ length: 12 }, (_, k) => {
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (11 - k), 1));
+    const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0));
+    return { start, range: `${start.toISOString().slice(0, 10)}..${end.toISOString().slice(0, 10)}` };
+  });
+  type Page = { total_count: number; items: { commit: { author: { date: string } | null } }[] };
+  // Three at a time: the search API allows 30 requests a minute and punishes bursts.
+  const pages = await pool(months, 3, async (m) => {
+    const q = encodeURIComponent(`author:${login} author-date:${m.range}`);
+    try {
+      return await gh.rest<Page>(`/search/commits?q=${q}&sort=author-date&order=desc&per_page=100`);
+    } catch {
+      return null;
+    }
+  });
+  if (pages.every((p) => p === null)) throw new GitHubError("GitHub commit search failed for every month.");
   const times: CommitTime[] = [];
   const monthly: { month: string; commits: number }[] = [];
-  const now = new Date();
-  for (let i = 11; i >= 0; i--) {
-    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
-    const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0));
-    const range = `${start.toISOString().slice(0, 10)}..${end.toISOString().slice(0, 10)}`;
-    const q = encodeURIComponent(`author:${login} author-date:${range}`);
-    let d: { total_count: number; items: { commit: { author: { date: string } | null } }[] };
-    try {
-      d = await gh.rest(`/search/commits?q=${q}&sort=author-date&order=desc&per_page=100`);
-    } catch (e) {
-      if (times.length === 0 && i === 0) throw e;
-      continue;
-    }
-    monthly.push({ month: start.toISOString().slice(0, 7), commits: d.total_count });
+  pages.forEach((d, k) => {
+    if (!d) return;
+    monthly.push({ month: months[k]!.start.toISOString().slice(0, 7), commits: d.total_count });
     for (const it of d.items) if (it.commit.author?.date) times.push({ date: it.commit.author.date });
-  }
+  });
   return { times, monthly };
+}
+
+/** Maps with at most `n` calls in flight, keeping input order. */
+async function pool<T, R>(items: T[], n: number, f: (t: T) => Promise<R>): Promise<R[]> {
+  const out = new Array<R>(items.length);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(n, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        out[i] = await f(items[i]!);
+      }
+    }),
+  );
+  return out;
 }
