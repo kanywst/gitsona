@@ -10,6 +10,8 @@ export type Section = (typeof SECTIONS)[number];
 export interface RenderOptions {
   sections: Section[];
   motion: boolean;
+  /** Draw an accent "_" after the name, like a terminal prompt. */
+  cursor?: boolean;
   accent?: string;
 }
 
@@ -47,7 +49,7 @@ export function render(p: Profile, opts: RenderOptions, avatars: Map<string, str
     for (const s of opts.sections) {
       switch (s) {
         case "hero":
-          files.set(`hero-${mode}.svg`, hero(p, t, { motion: opts.motion }));
+          files.set(`hero-${mode}.svg`, hero(p, t, { motion: opts.motion, cursor: opts.cursor !== false }));
           break;
         case "traits":
           if (p.traits.length) files.set(`traits-${mode}.svg`, traits(p, t));

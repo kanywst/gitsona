@@ -1,7 +1,7 @@
 import type { LangShare, Profile, UpstreamProject } from "../analyze.ts";
 import type { Repo } from "../collect.ts";
 import { contours, makeField, normalize } from "./contour.ts";
-import { ellipsize, measure, wrap } from "./fonts.ts";
+import { ellipsize, fitSize, measure, wrap } from "./fonts.ts";
 import { Doc, fmt, r1, rng } from "./svg.ts";
 import { contrast, type Theme } from "./theme.ts";
 
@@ -111,7 +111,7 @@ export function rhythm(p: Profile, t: Theme): string {
   out.push(
     doc.text(rx, 84, r.samples ? r.chronotype : "No sample yet", {
       font: "display",
-      size: 52,
+      size: fitSize(r.samples ? r.chronotype : "No sample yet", "display", 52, rw, 28),
       fill: t.ink,
       tracking: -0.9,
     }),
@@ -148,7 +148,12 @@ export function rhythm(p: Profile, t: Theme): string {
       doc.text(
         rx,
         H - 16,
-        `Public commits per month, peak ${fmt(peakM.commits)} in ${MONTHS[+peakM.month.slice(5, 7) - 1]} ${peakM.month.slice(0, 4)}`,
+        ellipsize(
+          `Commits per month, peak ${fmt(peakM.commits)} in ${MONTHS[+peakM.month.slice(5, 7) - 1]} ${peakM.month.slice(0, 4)}`,
+          "regular",
+          14,
+          rw,
+        ),
         {
           font: "regular",
           size: 14,
@@ -171,6 +176,42 @@ export function rhythm(p: Profile, t: Theme): string {
 
 function textOn(bg: string): string {
   return contrast(bg, "#ffffff") >= contrast(bg, "#0b141c") ? "#ffffff" : "#0b141c";
+}
+
+/** A five-point star drawn as a path: the bundled faces have no ★ glyph. */
+function star(x: number, baseline: number, size: number, fill: string): string {
+  const r = size * 0.42;
+  const cx = x + r;
+  const cy = baseline - size * 0.36;
+  const pts: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r * 0.45 : r;
+    pts.push(`${r1(cx + rr * Math.cos(a))} ${r1(cy + rr * Math.sin(a))}`);
+  }
+  return `<path d="M${pts.join("L")}Z" fill="${fill}"/>`;
+}
+
+/** Star icon followed by a number, right-aligned at x. */
+function starCount(
+  doc: Doc,
+  x: number,
+  baseline: number,
+  n: number,
+  size: number,
+  fill: string,
+  anchor: "start" | "end",
+): { svg: string; width: number } {
+  const label = fmt(n);
+  const tw = measure(label, "medium", size);
+  const iw = size * 0.84 + size * 0.35;
+  const start = anchor === "end" ? x - tw - iw : x;
+  return {
+    svg:
+      star(start, baseline, size, fill) +
+      doc.text(start + iw, baseline, label, { font: "medium", size, fill, tnum: true }),
+    width: tw + iw,
+  };
 }
 
 const OTHER = "Other";
@@ -348,15 +389,7 @@ export function upstream(p: Profile, t: Theme, avatars: Map<string, string>): st
       out.push(
         doc.text(dotX + maxDots * 14 + 4, cy + 5, `+${total - maxDots}`, { font: "medium", size: 13, fill: t.muted }),
       );
-    out.push(
-      doc.text(W - PAD, cy + 6, `★ ${fmt(proj.stars)}`, {
-        font: "regular",
-        size: 16,
-        fill: t.muted,
-        anchor: "end",
-        tnum: true,
-      }),
-    );
+    out.push(starCount(doc, W - PAD, cy + 6, proj.stars, 16, t.muted, "end").svg);
   });
   const ly = 104 + rows.length * rowH;
   out.push(
@@ -434,9 +467,9 @@ export function card(repo: Repo, t: Theme): string {
     fx += 19 + measure(repo.primaryLanguage.name, "medium", 16) + 24;
   }
   if (repo.stars > 0) {
-    const s = `★ ${fmt(repo.stars)}`;
-    out.push(doc.text(fx, fy, s, { font: "medium", size: 16, fill: t.muted, tnum: true }));
-    fx += measure(s, "medium", 16) + 24;
+    const sc = starCount(doc, fx, fy, repo.stars, 16, t.muted, "start");
+    out.push(sc.svg);
+    fx += sc.width + 24;
   }
   if (repo.latestRelease) {
     out.push(

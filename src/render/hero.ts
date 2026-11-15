@@ -26,7 +26,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
   const summary = wrap(p.summary, "regular", 19, colW - 10, 3);
   const textBottom = 76 + 22 + nameSize * 0.7 + 44 + headline.length * 35 + 2 + summary.length * 26;
   const legendRows = 4;
-  const H = Math.max(H_MIN, Math.ceil(textBottom - 26 + 22 + (legendRows - 1) * 28 + 70));
+  const H = Math.max(H_MIN, Math.ceil(textBottom - 26 + 22 + (legendRows - 1) * 28 + 58));
   const doc = new Doc(W, H, t, `${p.displayName} (@${p.login}): ${p.headline}`);
   const days = p.lastYear.days;
   const max = Math.max(1, ...days.map((d) => d.count));
@@ -175,7 +175,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
     ["PRs merged in others' projects", fmt(p.upstream.merged)],
     ["Stars on own repositories", fmt(p.totals.stars)],
   ];
-  const ly0 = Math.max(y + 22, H - 30 - legend.length * 28);
+  const ly0 = Math.max(y + 22, H - 58 - (legend.length - 1) * 28);
   const lx1 = left + 410;
   const legendSvg = legend
     .map(([k, v], i) => {

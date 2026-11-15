@@ -45,7 +45,7 @@ export class Doc {
   text(x: number, y: number, s: string, o: TextOpts): string {
     const shaped = shape(s, o.font, o.tnum);
     if (!shaped.complete) return this.systemText(x, y, s, o);
-    const scale = o.size / shaped.upem;
+    const scale = (o.size * (typeset().faces[o.font].scale ?? 1)) / shaped.upem;
     const track = (o.tracking ?? 0) / scale;
     const width = shaped.width + track * Math.max(0, shaped.glyphs.length - 1);
     const dx = o.anchor === "middle" ? -width / 2 : o.anchor === "end" ? -width : 0;
@@ -76,7 +76,7 @@ export class Doc {
       `y="${r1(y)}"`,
       `font-family="${esc(typeset().faces[o.font].system)}"`,
       `font-weight="${typeset().faces[o.font].weight}"`,
-      `font-size="${o.size}"`,
+      `font-size="${r1(o.size * (typeset().faces[o.font].scale ?? 1))}"`,
       `fill="${o.fill}"`,
     ];
     if (o.anchor && o.anchor !== "start") attrs.push(`text-anchor="${o.anchor}"`);

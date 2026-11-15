@@ -21,6 +21,8 @@ export interface Face {
   weight: number;
   /** Letter-spacing in em for large settings of this face. */
   tracking?: number;
+  /** Optical size correction: a monospace reads larger than a sans at the same px. */
+  scale?: number;
 }
 
 export interface Typeset {
@@ -30,27 +32,25 @@ export interface Typeset {
 
 const CJK = "'Hiragino Sans', 'Noto Sans CJK JP', sans-serif";
 
-export const BRICOLAGE: Typeset = {
-  name: "bricolage",
+const SANS = `'Geist', 'Inter', 'Segoe UI', ${CJK}`;
+const MONO = `'Geist Mono', 'SFMono-Regular', 'Menlo', 'Consolas', ${CJK}`;
+
+/**
+ * Geist for headlines, Geist Mono for the name and everything that reads as data: the pairing
+ * Vercel ships, and the same family as the author's site. Both are variable; roles pin wght.
+ */
+export const GEIST: Typeset = {
+  name: "geist",
   faces: {
-    display: {
-      file: "bric-display.ttf",
-      system: `'Bricolage Grotesque', 'Avenir Next Condensed', ${CJK}`,
-      weight: 700,
-      tracking: -0.02,
-    },
-    text: { file: "bric-text.ttf", system: `'Bricolage Grotesque', 'Avenir Next', ${CJK}`, weight: 500 },
-    regular: { file: "plexcond-Regular.ttf", system: `'IBM Plex Sans Condensed', 'Arial Narrow', ${CJK}`, weight: 400 },
-    medium: { file: "plexcond-Medium.ttf", system: `'IBM Plex Sans Condensed', 'Arial Narrow', ${CJK}`, weight: 500 },
-    semibold: {
-      file: "plexcond-SemiBold.ttf",
-      system: `'IBM Plex Sans Condensed', 'Arial Narrow', ${CJK}`,
-      weight: 600,
-    },
+    display: { file: "GeistMono.ttf", vars: { wght: 400 }, system: MONO, weight: 400, tracking: 0.02 },
+    text: { file: "Geist.ttf", vars: { wght: 500 }, system: SANS, weight: 500, tracking: -0.01 },
+    regular: { file: "GeistMono.ttf", vars: { wght: 400 }, system: MONO, weight: 400, scale: 0.9 },
+    medium: { file: "GeistMono.ttf", vars: { wght: 500 }, system: MONO, weight: 500, scale: 0.9 },
+    semibold: { file: "GeistMono.ttf", vars: { wght: 600 }, system: MONO, weight: 600, scale: 0.9 },
   },
 };
 
-let current: Typeset = BRICOLAGE;
+let current: Typeset = GEIST;
 
 /** Switches the faces every later shape() and glyphPath() call uses. */
 export function useTypeset(t: Typeset): void {
@@ -66,7 +66,7 @@ function fontsDir(): string {
   let dir = dirname(fileURLToPath(import.meta.url));
   for (let i = 0; i < 4; i++) {
     try {
-      readFileSync(join(dir, "fonts", "OFL-IBMPlexSansCondensed.txt"));
+      readFileSync(join(dir, "fonts", "OFL-Geist.txt"));
       return join(dir, "fonts");
     } catch {
       dir = dirname(dir);
@@ -130,7 +130,10 @@ export function shape(text: string, id: FontId, tnum = false): Shaped {
   const buf = new hb.Buffer();
   buf.addText(text);
   buf.guessSegmentProperties();
-  hb.shape(font, buf, tnum ? [new hb.Feature("tnum"), new hb.Feature("lnum")] : []);
+  // Ligatures and contextual alternates off: a name or a flag like "--push" must keep its characters.
+  const features = [new hb.Feature("liga", 0), new hb.Feature("calt", 0)];
+  if (tnum) features.push(new hb.Feature("tnum"), new hb.Feature("lnum"));
+  hb.shape(font, buf, features);
   const glyphs: Glyph[] = [];
   let x = 0;
   let complete = true;
@@ -160,7 +163,8 @@ export function glyphPath(id: FontId, gid: number): string {
 }
 
 /** Advance width in px of `text` set in `font` at `size`. */
-export function measure(text: string, font: FontId, size: number, letterSpacing = 0): number {
+export function measure(text: string, font: FontId, sizeIn: number, letterSpacing = 0): number {
+  const size = sizeIn * (current.faces[font].scale ?? 1);
   const s = shape(text, font);
   if (!s.complete) {
     // Fallback text: estimate from the character count, wide characters counting as one em.

@@ -33,6 +33,7 @@ Content
       --sections <list>  Comma-separated, in order: ${SECTIONS.join(",")}
       --accent <hex>     Accent colour (default: your top language's colour)
       --no-motion        Skip the contour draw-in animation
+      --no-cursor        Leave out the accent "_" after your name
       --no-bio           Leave your GitHub bio out of the README
       --private          Count private repositories in language and topic stats
                          (their names are never drawn)
@@ -81,6 +82,7 @@ async function main(argv: string[]): Promise<number> {
       sections: { type: "string" },
       accent: { type: "string" },
       "no-motion": { type: "boolean" },
+      "no-cursor": { type: "boolean" },
       "no-bio": { type: "boolean" },
       private: { type: "boolean" },
       action: { type: "boolean" },
@@ -140,7 +142,11 @@ async function main(argv: string[]): Promise<number> {
   }
 
   const avatars = gh ? await fetchAvatars(gh, profile) : new Map<string, string>();
-  const rendered = render(profile, { sections, motion: !v["no-motion"], accent: v.accent }, avatars);
+  const rendered = render(
+    profile,
+    { sections, motion: !v["no-motion"], cursor: !v["no-cursor"], accent: v.accent },
+    avatars,
+  );
 
   mkdirSync(join(out, ASSETS), { recursive: true });
   for (const [name, svg] of rendered.files) writeFileSync(join(out, ASSETS, name), svg);
