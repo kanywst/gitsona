@@ -1,0 +1,46 @@
+name: Release
+
+# Push a tag like v0.2.0 to publish. npm trusted publishing exchanges this
+# job's OIDC token for a short-lived publish credential, so no npm token is
+# stored here, and the package gets a provenance statement tied to this run.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: bun install --frozen-lockfile
+      - name: Tag matches package.json
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="v$(node -p 'require("./package.json").version')"
+          if [ "$version" != "$TAG" ]; then
+            echo "::error::tag $TAG does not match package.json $version"; exit 1
+          fi
+      - run: bunx biome ci .
+      - run: bunx tsc --noEmit
+      - run: bun test
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" --verify-tag --generate-notes
