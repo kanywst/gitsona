@@ -11,6 +11,7 @@ import { commitAndPush, createProfileRepo, ensureCheckout, hasGh, repoExists, wr
 import { mergeReadme, readmeBlock } from "./readme.ts";
 import {
   DEFAULT_TYPESET,
+  fontFileProblem,
   TYPESET_NAMES,
   TYPESETS,
   type Typeset,
@@ -131,7 +132,8 @@ async function main(argv: string[]): Promise<number> {
   let typeset: Typeset = TYPESETS[fontName];
   if (v["display-font"]) {
     const file = resolve(v["display-font"]);
-    if (!existsSync(file)) throw new UsageError(`--display-font: ${v["display-font"]} does not exist.`);
+    const problem = fontFileProblem(file);
+    if (problem) throw new UsageError(`--display-font: ${v["display-font"]} ${problem}.`);
     typeset = withDisplayFont(typeset, file);
   }
 

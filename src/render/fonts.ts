@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as hb from "harfbuzzjs";
@@ -111,8 +111,33 @@ export const DEFAULT_TYPESET: TypesetName = "pixel";
 
 /** A preset with the name and headline faces swapped for a font file the user brings. */
 export function withDisplayFont(base: Typeset, file: string): Typeset {
-  const face: Face = { file, system: SANS, weight: 700 };
-  return { name: `${base.name}+custom`, faces: { ...base.faces, display: face, text: { ...face, weight: 500 } } };
+  // A wght axis, when the face has one, pins the weights the roles promise; static faces ignore it.
+  const display: Face = { file, vars: { wght: 700 }, system: SANS, weight: 700 };
+  const text: Face = { file, vars: { wght: 500 }, system: SANS, weight: 500 };
+  return { name: `${base.name}+custom`, faces: { ...base.faces, display, text } };
+}
+
+/** Why a font file cannot be used, or null when HarfBuzz can shape Latin text with it. */
+export function fontFileProblem(file: string): string | null {
+  let bytes: Uint8Array;
+  try {
+    if (!statSync(file).isFile()) return "is not a file";
+    bytes = new Uint8Array(readFileSync(file));
+  } catch {
+    return "cannot be read";
+  }
+  // WOFF and WOFF2 are compressed web formats HarfBuzz does not open.
+  const tag = String.fromCharCode(...bytes.slice(0, 4));
+  if (tag === "wOFF" || tag === "wOF2") return "is a web font (WOFF); use the .ttf or .otf";
+  // sfnt magic: TrueType outlines, CFF outlines, Apple 'true', or a collection.
+  if (!["\u0000\u0001\u0000\u0000", "OTTO", "true", "ttcf"].includes(tag)) return "is not a TrueType or OpenType font";
+  const face = new hb.Face(new hb.Blob(bytes));
+  const buf = new hb.Buffer();
+  buf.addText("Ag");
+  buf.guessSegmentProperties();
+  hb.shape(new hb.Font(face), buf, []);
+  if (buf.getGlyphInfos().some((g) => g.codepoint === 0)) return "has no Latin letters";
+  return null;
 }
 
 let current: Typeset = TYPESETS[DEFAULT_TYPESET];

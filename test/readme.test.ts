@@ -96,6 +96,22 @@ describe("cli", () => {
     expect(r.stderr).toContain("Unknown --font comic");
   });
 
+  test("rejects a display font it cannot use before calling GitHub", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gitsona-font-"));
+    const woff = join(dir, "x.woff2");
+    writeFileSync(woff, "wOF2rest-of-file");
+    for (const [arg, msg] of [
+      [dir, "is not a file"],
+      [woff, "is a web font"],
+      [join(dir, "missing.ttf"), "cannot be read"],
+      ["README.md", "is not a TrueType or OpenType font"],
+    ] as const) {
+      const r = spawnSync("bun", ["src/cli.ts", "--display-font", arg, "--from-raw", "x"], { encoding: "utf8" });
+      expect(r.status, arg).toBe(2);
+      expect(r.stderr, arg).toContain(msg);
+    }
+  });
+
   test("rejects unknown sections with a usage error", () => {
     const r = spawnSync("bun", ["src/cli.ts", "--sections", "hero,nope", "--from-raw", "x"], { encoding: "utf8" });
     expect(r.status).toBe(2);
