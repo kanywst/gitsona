@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analyze } from "../src/analyze.ts";
@@ -88,6 +88,25 @@ describe("cli", () => {
     expect(readdirSync(join(out, "gitsona")).length).toBeGreaterThan(10);
     expect(existsSync(join(out, "gitsona-preview.html"))).toBe(true);
     expect(existsSync(join(out, ".github/workflows/gitsona.yml"))).toBe(true);
+  });
+
+  test("removes images an earlier run drew and this one does not", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gitsona-prune-"));
+    const raw = join(dir, "raw.json");
+    writeFileSync(raw, JSON.stringify(fixture()));
+    mkdirSync(join(dir, "out", "gitsona"), { recursive: true });
+    writeFileSync(join(dir, "out", "gitsona", "project-gone-dark.svg"), "<svg/>");
+    writeFileSync(join(dir, "out", "gitsona", "my-photo.png"), "keep");
+    writeFileSync(join(dir, "out", "gitsona", "logo-dark.svg"), "<svg/>");
+    const r = spawnSync("bun", ["src/cli.ts", "--from-raw", raw, "--out", join(dir, "out"), "-q"], {
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(0);
+    const files = readdirSync(join(dir, "out", "gitsona"));
+    expect(files).not.toContain("project-gone-dark.svg");
+    expect(files).toContain("my-photo.png");
+    expect(files).toContain("logo-dark.svg");
+    expect(files).toContain("hero-dark.svg");
   });
 
   test("rejects an unknown typeface preset", () => {
