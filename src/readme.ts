@@ -1,6 +1,6 @@
 import type { Profile } from "./analyze.ts";
-import { slug, type Section } from "./render/index.ts";
 import { fmtDate } from "./render/hero.ts";
+import { type Section, slug } from "./render/index.ts";
 
 export const START = "<!-- gitsona:start -->";
 export const END = "<!-- gitsona:end -->";
@@ -64,7 +64,10 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
     out.push(`### Projects`, "");
     out.push(
       p.landmarks
-        .map((r) => `<a href="${r.url}">${picture(dir, `project-${slug(r.name)}`, `${r.name}: ${r.description ?? ""}`, "49%").replace(/\n\s*/g, "")}</a>`)
+        .map(
+          (r) =>
+            `<a href="${r.url}">${picture(dir, `project-${slug(r.name)}`, `${r.name}: ${r.description ?? ""}`, "49%").replace(/\n\s*/g, "")}</a>`,
+        )
         .join("\n"),
       "",
     );

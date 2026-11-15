@@ -6,23 +6,40 @@
   "bin": {
     "gitsona": "dist/cli.js"
   },
-  "files": ["dist", "fonts/*.ttf", "fonts/metrics.json", "fonts/OFL-*.txt"],
+  "files": [
+    "dist",
+    "fonts/*.ttf",
+    "fonts/metrics.json",
+    "fonts/OFL-*.txt"
+  ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "build": "bun build src/cli.ts --target=node --outfile=dist/cli.js && chmod +x dist/cli.js",
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
     "test": "bun test",
-    "dev": "bun src/cli.ts"
+    "dev": "bun src/cli.ts",
+    "shots": "scripts/shot.sh"
   },
-  "keywords": ["github", "profile", "readme", "svg", "cli", "generator"],
+  "keywords": [
+    "github",
+    "profile",
+    "readme",
+    "svg",
+    "cli",
+    "generator"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kanywst/gitsona.git"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.6.8",
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.6",
     "typescript": "^7.0.2"

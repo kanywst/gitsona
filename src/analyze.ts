@@ -51,7 +51,14 @@ export interface Profile {
     peak: Day;
     busiestWeekday: number;
   };
-  lifetime: { contributions: number; commits: number; prs: number; reviews: number; issues: number; longestStreak: number };
+  lifetime: {
+    contributions: number;
+    commits: number;
+    prs: number;
+    reviews: number;
+    issues: number;
+    longestStreak: number;
+  };
   traits: Trait[];
   rhythm: {
     /** grid[weekday 0=Mon][hour 0..23] commit counts in the author's local time. */
@@ -85,9 +92,7 @@ const DOMAIN_DAMPING: Record<string, number> = { devtools: 0.45, web: 0.6, knowl
 export function isRetired(r: Repo): boolean {
   const d = (r.description ?? "").toLowerCase();
   return (
-    r.isArchived ||
-    /^\[(deprecated|merged into|moved|archived)/.test(d) ||
-    /^(moved to|pointer to|deprecated)/.test(d)
+    r.isArchived || /^\[(deprecated|merged into|moved|archived)/.test(d) || /^(moved to|pointer to|deprecated)/.test(d)
   );
 }
 
@@ -219,7 +224,7 @@ function lastYearStats(raw: RawData, now: Date): Profile["lastYear"] {
   const days = allDays(raw).filter((d) => d.date >= from && d.date <= today);
   const { longest, current } = streaks(days);
   const wd = new Array(7).fill(0) as number[];
-  for (const d of days) wd[(new Date(d.date + "T00:00:00Z").getUTCDay() + 6) % 7]! += d.count;
+  for (const d of days) wd[(new Date(`${d.date}T00:00:00Z`).getUTCDay() + 6) % 7]! += d.count;
   const peak = days.reduce((p, d) => (d.count > p.count ? d : p), days[0] ?? { date: today, count: 0 });
   return {
     days,
@@ -272,9 +277,7 @@ function upstreamStats(prs: ExternalPR[], ownOrgs: Set<string>, issues: number):
   return {
     merged: external.filter((p) => p.state === "MERGED").length,
     open: external.filter((p) => p.state === "OPEN").length,
-    projects: [...byRepo.values()]
-      .filter((p) => p.merged > 0)
-      .sort((a, b) => b.merged - a.merged || b.stars - a.stars),
+    projects: [...byRepo.values()].filter((p) => p.merged > 0).sort((a, b) => b.merged - a.merged || b.stars - a.stars),
     recentMerged: external
       .filter((p) => p.state === "MERGED" && p.mergedAt)
       .sort((a, b) => b.mergedAt!.localeCompare(a.mergedAt!)),
@@ -381,7 +384,8 @@ function buildTraits(
     acc += l.share;
     l80++;
   }
-  const entropy = domains.length > 1 ? -domains.reduce((s, d) => s + d.share * Math.log(d.share), 0) / Math.log(domains.length) : 0;
+  const entropy =
+    domains.length > 1 ? -domains.reduce((s, d) => s + d.share * Math.log(d.share), 0) / Math.log(domains.length) : 0;
   const topDomain = domains[0];
   traits.push({
     id: "breadth",
@@ -448,9 +452,18 @@ export function buildHeadline(domains: Profile["domains"]): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function buildSummary(domains: Profile["domains"], languages: LangShare[], upstream: Profile["upstream"]): string {
-  const nouns = characteristic(domains).slice(0, 2).map((d) => domainById(d.id).noun);
-  const langs = languages.filter((l, i) => i === 0 || l.share >= 0.1).slice(0, 3).map((l) => l.name);
+export function buildSummary(
+  domains: Profile["domains"],
+  languages: LangShare[],
+  upstream: Profile["upstream"],
+): string {
+  const nouns = characteristic(domains)
+    .slice(0, 2)
+    .map((d) => domainById(d.id).noun);
+  const langs = languages
+    .filter((l, i) => i === 0 || l.share >= 0.1)
+    .slice(0, 3)
+    .map((l) => l.name);
   let s = nouns.length ? `Builds ${joinList(nouns)}` : "Builds software";
   if (langs.length) s += ` in ${joinList(langs)}`;
   const named = upstream.projects.slice(0, 2).map((p) => p.repo.split("/")[1]!);
@@ -459,7 +472,9 @@ export function buildSummary(domains: Profile["domains"], languages: LangShare[]
 }
 
 function pickLandmarks(raw: RawData, live: Repo[], login: string): Repo[] {
-  const pinned = raw.pinned.filter((r) => r.name.toLowerCase() !== login.toLowerCase() && !isRetired(r) && !r.isPrivate);
+  const pinned = raw.pinned.filter(
+    (r) => r.name.toLowerCase() !== login.toLowerCase() && !isRetired(r) && !r.isPrivate,
+  );
   const chosen = [...pinned];
   const seen = new Set(chosen.map((r) => r.nameWithOwner));
   const rest = live

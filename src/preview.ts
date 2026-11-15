@@ -8,11 +8,11 @@ function esc(s: string): string {
 export function miniMarkdown(md: string): string {
   const inline = (s: string) =>
     s
-      .replace(/\\([\\[\]`*_<>])/g, "\u0000$1")
+      .replace(/\\([\\[\]`*_<>])/g, "\uE000$1")
       .replace(/`([^`]+)`/g, (_, c) => `<code>${esc(c)}</code>`)
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, t, u) => `<a href="${u}">${t}</a>`)
       .replace(/ {2}$/gm, "<br>")
-      .replace(/\u0000(.)/g, (_, c) => esc(c));
+      .replace(/\uE000(.)/g, (_, c) => esc(c));
   const blocks = md.split(/\n{2,}/);
   return blocks
     .map((b) => {
@@ -21,7 +21,10 @@ export function miniMarkdown(md: string): string {
       if (t.startsWith("<!--")) return "";
       if (t.startsWith("### ")) return `<h3>${inline(t.slice(4))}</h3>`;
       if (/^- /m.test(t) && t.split("\n").every((l) => l.startsWith("- "))) {
-        return `<ul>${t.split("\n").map((l) => `<li>${inline(l.slice(2))}</li>`).join("")}</ul>`;
+        return `<ul>${t
+          .split("\n")
+          .map((l) => `<li>${inline(l.slice(2))}</li>`)
+          .join("")}</ul>`;
       }
       if (t.startsWith("<")) return inline(t);
       return `<p>${inline(t).replace(/\n/g, " ")}</p>`;

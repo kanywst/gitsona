@@ -36,9 +36,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
     const wd = k % 7;
     return [x0 + (wk / Math.max(1, weeks - 1)) * (x1 - x0), y0 + (wd / 6) * (y1 - y0)];
   };
-  const hills = days
-    .map((d, i) => ({ xy: pos(i), h: Math.sqrt(d.count / max) }))
-    .filter((h) => h.h > 0);
+  const hills = days.map((d, i) => ({ xy: pos(i), h: Math.sqrt(d.count / max) })).filter((h) => h.h > 0);
   const rand = rng(p.login);
   const phase = [rand() * 6, rand() * 6, rand() * 6];
   const sx = 2 * 20 ** 2;
@@ -69,13 +67,14 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
       `</linearGradient>` +
       `<clipPath id="card"><rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="13"/></clipPath>`,
   );
-  if (opts.motion !== false) doc.style(
-    `.c{animation:draw 2.6s cubic-bezier(.25,.6,.2,1) backwards}` +
-      `@keyframes draw{from{stroke-dashoffset:var(--l)}}` +
-      `.pk{animation:rise .8s ease-out 1.6s backwards}` +
-      `@keyframes rise{from{opacity:0;transform:translateY(6px)}}` +
-      `@media (prefers-reduced-motion:reduce){.c,.pk{animation:none}}`,
-  );
+  if (opts.motion !== false)
+    doc.style(
+      `.c{animation:draw 2.6s cubic-bezier(.25,.6,.2,1) backwards}` +
+        `@keyframes draw{from{stroke-dashoffset:var(--l)}}` +
+        `.pk{animation:rise .8s ease-out 1.6s backwards}` +
+        `@keyframes rise{from{opacity:0;transform:translateY(6px)}}` +
+        `@media (prefers-reduced-motion:reduce){.c,.pk{animation:none}}`,
+    );
 
   const terrain = lines
     .map((c) => {
@@ -118,7 +117,13 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
       `<g class="pk">` +
       `<path d="M${r1(px)} ${r1(py - 7)}l6.5 11h-13z" fill="${t.accent}" stroke="${t.bg}" stroke-width="2" paint-order="stroke"/>` +
       `<g stroke="${t.bg}" stroke-width="5" stroke-linejoin="round" paint-order="stroke">` +
-      doc.text(lx, py + 3, label, { font: "medium", size: 13, fill: t.ink, anchor: right ? "start" : "end", tnum: true }) +
+      doc.text(lx, py + 3, label, {
+        font: "medium",
+        size: 13,
+        fill: t.ink,
+        anchor: right ? "start" : "end",
+        tnum: true,
+      }) +
       `</g></g>`;
   }
 
@@ -134,7 +139,14 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
   const head: string[] = [];
   head.push(doc.text(left, y, ellipsize(since, "medium", 15, colW), { font: "medium", size: 15, fill: t.muted }));
   y += 22 + nameSize * 0.7;
-  head.push(doc.text(left - nameSize * 0.04, y, p.displayName, { font: "display", size: nameSize, fill: t.ink, tracking: -nameSize * 0.02 }));
+  head.push(
+    doc.text(left - nameSize * 0.04, y, p.displayName, {
+      font: "display",
+      size: nameSize,
+      fill: t.ink,
+      tracking: -nameSize * 0.02,
+    }),
+  );
   y += 44;
   for (const l of headline) {
     head.push(doc.text(left, y, l, { font: "text", size: 26, fill: t.ink, tracking: -0.3 }));
@@ -167,12 +179,17 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean } = {}): str
     })
     .join("");
 
-  const caption = doc.text(W - 40, 40, `Daily contributions as relief, ${fmtDate(days[0]?.date ?? "")} to ${fmtDate(days.at(-1)?.date ?? "")}`, {
-    font: "regular",
-    size: 12,
-    fill: t.faint,
-    anchor: "end",
-  });
+  const caption = doc.text(
+    W - 40,
+    40,
+    `Daily contributions as relief, ${fmtDate(days[0]?.date ?? "")} to ${fmtDate(days.at(-1)?.date ?? "")}`,
+    {
+      font: "regular",
+      size: 12,
+      fill: t.faint,
+      anchor: "end",
+    },
+  );
 
   return doc.render(
     `<g clip-path="url(#card)">${ticks.filter((_, i) => i % 2 === 0).join("")}${terrain}` +

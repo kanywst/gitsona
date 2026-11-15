@@ -1,4 +1,4 @@
-import { GitHub, GitHubError } from "./github.ts";
+import { type GitHub, GitHubError } from "./github.ts";
 
 export interface Lang {
   name: string;
@@ -226,7 +226,7 @@ export async function collect(gh: GitHub, login: string, opts: CollectOptions): 
       orgs: u.organizations.nodes.map((o) => o.login),
     },
     repos,
-    pinned: u.pinnedItems.nodes.filter((r) => r && r.name).map(toRepo),
+    pinned: u.pinnedItems.nodes.filter((r) => r?.name).map(toRepo),
     years,
     prs,
     prTotals: {
@@ -319,20 +319,23 @@ async function collectPRs(gh: GitHub, login: string): Promise<{ prs: ExternalPR[
     const d: {
       search: {
         pageInfo: { hasNextPage: boolean; endCursor: string | null };
-        nodes: ({
-          title: string;
-          url: string;
-          state: "OPEN" | "CLOSED" | "MERGED";
-          createdAt: string;
-          mergedAt: string | null;
-          repository: {
-            nameWithOwner: string;
-            stargazerCount: number;
-            isPrivate: boolean;
-            owner: { login: string; avatarUrl: string };
-            primaryLanguage: Lang | null;
-          };
-        } | Record<string, never>)[];
+        nodes: (
+          | {
+              title: string;
+              url: string;
+              state: "OPEN" | "CLOSED" | "MERGED";
+              createdAt: string;
+              mergedAt: string | null;
+              repository: {
+                nameWithOwner: string;
+                stargazerCount: number;
+                isPrivate: boolean;
+                owner: { login: string; avatarUrl: string };
+                primaryLanguage: Lang | null;
+              };
+            }
+          | Record<string, never>
+        )[];
       };
     } = await gh.graphql(
       `query($q: String!, $after: String) {

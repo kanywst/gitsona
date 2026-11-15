@@ -53,19 +53,47 @@ function segments(field: Field, level: number): [Pt, Pt][] {
       const left: Pt = [x, y + lerp(tl, bl) * cell];
       const center = (tl + tr + br + bl) / 4;
       switch (idx) {
-        case 1: case 14: out.push([left, bottom]); break;
-        case 2: case 13: out.push([bottom, right]); break;
-        case 3: case 12: out.push([left, right]); break;
-        case 4: case 11: out.push([top, right]); break;
-        case 6: case 9: out.push([top, bottom]); break;
-        case 7: case 8: out.push([left, top]); break;
+        case 1:
+        case 14:
+          out.push([left, bottom]);
+          break;
+        case 2:
+        case 13:
+          out.push([bottom, right]);
+          break;
+        case 3:
+        case 12:
+          out.push([left, right]);
+          break;
+        case 4:
+        case 11:
+          out.push([top, right]);
+          break;
+        case 6:
+        case 9:
+          out.push([top, bottom]);
+          break;
+        case 7:
+        case 8:
+          out.push([left, top]);
+          break;
         case 5:
-          if (center >= level) { out.push([left, top]); out.push([bottom, right]); }
-          else { out.push([left, bottom]); out.push([top, right]); }
+          if (center >= level) {
+            out.push([left, top]);
+            out.push([bottom, right]);
+          } else {
+            out.push([left, bottom]);
+            out.push([top, right]);
+          }
           break;
         case 10:
-          if (center >= level) { out.push([top, right]); out.push([left, bottom]); }
-          else { out.push([left, top]); out.push([bottom, right]); }
+          if (center >= level) {
+            out.push([top, right]);
+            out.push([left, bottom]);
+          } else {
+            out.push([left, top]);
+            out.push([bottom, right]);
+          }
           break;
       }
     }

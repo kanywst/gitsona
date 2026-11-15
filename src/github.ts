@@ -20,7 +20,10 @@ export function resolveToken(explicit?: string): string {
 
 export class GitHub {
   requests = 0;
-  constructor(private token: string, private log: (msg: string) => void = () => {}) {}
+  constructor(
+    private token: string,
+    private log: (msg: string) => void = () => {},
+  ) {}
 
   private headers(): Record<string, string> {
     return {

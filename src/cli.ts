@@ -7,14 +7,7 @@ import { analyze } from "./analyze.ts";
 import { collect, type RawData } from "./collect.ts";
 import { GitHub, GitHubError, resolveToken } from "./github.ts";
 import { previewHtml } from "./preview.ts";
-import {
-  commitAndPush,
-  createProfileRepo,
-  ensureCheckout,
-  hasGh,
-  repoExists,
-  writeWorkflow,
-} from "./publish.ts";
+import { commitAndPush, createProfileRepo, ensureCheckout, hasGh, repoExists, writeWorkflow } from "./publish.ts";
 import { mergeReadme, readmeBlock } from "./readme.ts";
 import { fetchAvatars, render, SECTIONS, type Section } from "./render/index.ts";
 
@@ -152,12 +145,19 @@ async function main(argv: string[]): Promise<number> {
   mkdirSync(join(out, ASSETS), { recursive: true });
   for (const [name, svg] of rendered.files) writeFileSync(join(out, ASSETS, name), svg);
   const readmePath = join(out, "README.md");
-  const block = readmeBlock(profile, { sections: rendered.sections, dir: `./${ASSETS}`, bio: v["no-bio"] ? null : undefined });
+  const block = readmeBlock(profile, {
+    sections: rendered.sections,
+    dir: `./${ASSETS}`,
+    bio: v["no-bio"] ? null : undefined,
+  });
   const existing = existsSync(readmePath) ? readFileSync(readmePath, "utf8") : null;
   writeFileSync(readmePath, mergeReadme(existing, block, !!v.replace));
   if (v.json) {
     const { lastYear, ...rest } = profile;
-    writeFileSync(join(out, ASSETS, "profile.json"), JSON.stringify({ ...rest, lastYear: { ...lastYear, days: undefined } }, null, 2));
+    writeFileSync(
+      join(out, ASSETS, "profile.json"),
+      JSON.stringify({ ...rest, lastYear: { ...lastYear, days: undefined } }, null, 2),
+    );
   }
   if (v.preview) writeFileSync(join(out, "gitsona-preview.html"), previewHtml(profile, block));
   if (v.action) writeWorkflow(out);
@@ -168,7 +168,9 @@ async function main(argv: string[]): Promise<number> {
   log(`  ${c.bold(profile.displayName)}  ${c.dim(profile.headline)}`);
   log(`  ${c.dim(profile.summary)}`);
   log("");
-  log(`  wrote ${c.accent(join(rel, "README.md"))} and ${rendered.files.size} images in ${c.accent(join(rel, ASSETS))} ${c.dim(`(${Math.round(bytes / 1024)} KB)`)}`);
+  log(
+    `  wrote ${c.accent(join(rel, "README.md"))} and ${rendered.files.size} images in ${c.accent(join(rel, ASSETS))} ${c.dim(`(${Math.round(bytes / 1024)} KB)`)}`,
+  );
   if (v.preview) log(`  preview ${c.accent(join(rel, "gitsona-preview.html"))}`);
   if (v.action) log(`  workflow ${c.accent(join(rel, ".github/workflows/gitsona.yml"))}`);
   if (existing && !existing.includes("<!-- gitsona:start -->") && !v.replace) {
@@ -192,7 +194,10 @@ async function main(argv: string[]): Promise<number> {
 
 function parseSections(s: string | undefined): Section[] {
   if (!s) return [...SECTIONS];
-  const list = s.split(",").map((x) => x.trim()).filter(Boolean);
+  const list = s
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
   const bad = list.filter((x) => !(SECTIONS as readonly string[]).includes(x));
   if (bad.length) throw new UsageError(`Unknown section: ${bad.join(", ")}. Choose from ${SECTIONS.join(", ")}.`);
   return list as Section[];
@@ -216,7 +221,8 @@ main(process.argv.slice(2)).then(
     const msg = e instanceof Error ? e.message : String(e);
     process.stderr.write(`${c.red("gitsona:")} ${msg}\n`);
     if (e instanceof UsageError) process.stderr.write(c.dim("Run gitsona --help for usage.\n"));
-    else if (!(e instanceof GitHubError) && process.env.GITSONA_DEBUG && e instanceof Error) process.stderr.write(`${e.stack}\n`);
+    else if (!(e instanceof GitHubError) && process.env.GITSONA_DEBUG && e instanceof Error)
+      process.stderr.write(`${e.stack}\n`);
     process.exit(e instanceof UsageError ? 2 : 1);
   },
 );

@@ -1,4 +1,4 @@
-import { FAMILY, WEIGHT, fontFaceCss, type FontId } from "./fonts.ts";
+import { FAMILY, type FontId, fontFaceCss, WEIGHT } from "./fonts.ts";
 import type { Theme } from "./theme.ts";
 
 export function esc(s: string): string {
@@ -38,8 +38,8 @@ export class Doc {
   ) {}
 
   text(x: number, y: number, s: string, o: TextOpts): string {
-    let chars = this.fonts.get(o.font);
-    if (!chars) this.fonts.set(o.font, (chars = new Set()));
+    const chars = this.fonts.get(o.font) ?? new Set<string>();
+    this.fonts.set(o.font, chars);
     for (const ch of s) chars.add(ch);
     const attrs = [
       `x="${r1(x)}"`,

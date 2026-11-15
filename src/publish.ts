@@ -1,5 +1,5 @@
-import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 function run(cmd: string, args: string[], cwd?: string): { ok: boolean; out: string } {
@@ -17,8 +17,12 @@ export function repoExists(slug: string): boolean {
 
 export function createProfileRepo(login: string): void {
   const r = run("gh", [
-    "repo", "create", `${login}/${login}`, "--public",
-    "--description", "Profile README, drawn by gitsona",
+    "repo",
+    "create",
+    `${login}/${login}`,
+    "--public",
+    "--description",
+    "Profile README, drawn by gitsona",
   ]);
   if (!r.ok) throw new Error(`gh repo create failed: ${r.out}`);
 }
@@ -26,8 +30,10 @@ export function createProfileRepo(login: string): void {
 /** Clones the profile repo into dir when dir is not already a checkout of it. */
 export function ensureCheckout(login: string, dir: string): void {
   if (existsSync(join(dir, ".git"))) return;
-  if (existsSync(dir) && execFileSync("ls", ["-A", dir], { encoding: "utf8" }).trim()) {
-    throw new Error(`${dir} exists and is not a git checkout. Pick an empty --out directory, or run gitsona inside your ${login}/${login} clone.`);
+  if (existsSync(dir) && readdirSync(dir).length > 0) {
+    throw new Error(
+      `${dir} exists and is not a git checkout. Pick an empty --out directory, or run gitsona inside your ${login}/${login} clone.`,
+    );
   }
   const r = run("gh", ["repo", "clone", `${login}/${login}`, dir]);
   if (!r.ok) throw new Error(`gh repo clone failed: ${r.out}`);

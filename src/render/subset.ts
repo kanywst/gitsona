@@ -6,8 +6,15 @@ import { createRequire } from "node:module";
  * the glyphs it draws, which keeps an image with three faces around a few kilobytes of font data.
  */
 
+// Typed locally: lib.dom is not loaded, and @types/node does not declare the WebAssembly global.
+interface Wasm {
+  Module: new (bytes: Uint8Array) => object;
+  Instance: new (mod: object, imports: object) => { exports: unknown };
+}
+const wasm = (globalThis as unknown as { WebAssembly: Wasm }).WebAssembly;
+
 interface HbSubset {
-  memory: WebAssembly.Memory;
+  memory: { buffer: ArrayBuffer };
   malloc(n: number): number;
   free(p: number): void;
   hb_blob_create(data: number, length: number, mode: number, user: number, destroy: number): number;
@@ -30,8 +37,8 @@ function load(): HbSubset {
   if (hb) return hb;
   const require = createRequire(import.meta.url);
   const path = require.resolve("harfbuzzjs/dist/harfbuzz-subset.wasm");
-  const mod = new WebAssembly.Module(readFileSync(path));
-  hb = new WebAssembly.Instance(mod, {}).exports as unknown as HbSubset;
+  const mod = new wasm.Module(readFileSync(path));
+  hb = new wasm.Instance(mod, {}).exports as HbSubset;
   return hb;
 }
 

@@ -2,7 +2,7 @@ import type { Profile } from "../analyze.ts";
 import type { GitHub } from "../github.ts";
 import { hero } from "./hero.ts";
 import { card, rhythm, strata, traits, upstream } from "./panels.ts";
-import { theme, type Mode } from "./theme.ts";
+import { type Mode, theme } from "./theme.ts";
 
 export const SECTIONS = ["hero", "traits", "rhythm", "projects", "strata", "upstream"] as const;
 export type Section = (typeof SECTIONS)[number];
