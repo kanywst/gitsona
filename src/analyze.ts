@@ -489,7 +489,7 @@ function pickLandmarks(raw: RawData, live: Repo[], domains: Profile["domains"], 
   return live
     .filter((r) => !pinned.has(r.nameWithOwner) && !r.isPrivate && r.description)
     .map((r) => ({ r, s: score(r) }))
-    .sort((a, b) => b.s - a.s || a.r.name.localeCompare(b.r.name))
+    .sort((a, b) => b.s - a.s || (a.r.name < b.r.name ? -1 : a.r.name > b.r.name ? 1 : 0))
     .slice(0, 6)
     .map((x) => x.r);
 }
