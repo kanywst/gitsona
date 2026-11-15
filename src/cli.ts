@@ -177,10 +177,11 @@ async function main(argv: string[]): Promise<number> {
   for (const [name, svg] of rendered.files) writeFileSync(join(out, ASSETS, name), svg);
   // Images from an earlier run that this run no longer draws (a project that left the cards).
   // Only gitsona's own file names are touched, so anything else kept in the folder stays.
-  const stale = readdirSync(join(out, ASSETS)).filter(
-    (f) => /^[a-z0-9._-]+-(dark|light)\.svg$/.test(f) && !rendered.files.has(f),
+  const ours = /^(hero|traits|rhythm|strata|upstream|project-[a-z0-9._-]+)-(dark|light)\.svg$/;
+  const stale = readdirSync(join(out, ASSETS), { withFileTypes: true }).filter(
+    (e) => e.isFile() && ours.test(e.name) && !rendered.files.has(e.name),
   );
-  for (const f of stale) rmSync(join(out, ASSETS, f));
+  for (const e of stale) rmSync(join(out, ASSETS, e.name), { force: true });
   const readmePath = join(out, "README.md");
   const block = readmeBlock(profile, {
     sections: rendered.sections,

@@ -97,6 +97,7 @@ describe("cli", () => {
     mkdirSync(join(dir, "out", "gitsona"), { recursive: true });
     writeFileSync(join(dir, "out", "gitsona", "project-gone-dark.svg"), "<svg/>");
     writeFileSync(join(dir, "out", "gitsona", "my-photo.png"), "keep");
+    writeFileSync(join(dir, "out", "gitsona", "logo-dark.svg"), "<svg/>");
     const r = spawnSync("bun", ["src/cli.ts", "--from-raw", raw, "--out", join(dir, "out"), "-q"], {
       encoding: "utf8",
     });
@@ -104,6 +105,7 @@ describe("cli", () => {
     const files = readdirSync(join(dir, "out", "gitsona"));
     expect(files).not.toContain("project-gone-dark.svg");
     expect(files).toContain("my-photo.png");
+    expect(files).toContain("logo-dark.svg");
     expect(files).toContain("hero-dark.svg");
   });
 
