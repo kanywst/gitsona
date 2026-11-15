@@ -61,6 +61,7 @@ With no user, it draws the account behind your token. The token comes from `GITH
 | `--accent <hex>` | Accent colour. Defaults to your top language's colour |
 | `--private` | Let private repositories count toward language and topic stats. Their names are never drawn |
 | `--no-motion` | Skip the contour draw-in on the hero |
+| `--no-cursor` | Leave out the accent `_` after your name |
 | `--save-raw <file>`, `--from-raw <file>` | Save the fetched data, or render from it without calling GitHub |
 
 `gitsona --help` lists everything.
@@ -73,7 +74,7 @@ With `--action`, a workflow redraws the profile every Monday and commits only wh
 
 ## Notes
 
-- The images make no outside requests. Text is drawn as glyph outlines (Bricolage Grotesque and IBM Plex Sans Condensed, shaped with HarfBuzz), because GitHub serves README images under a CSP that can block embedded fonts. Characters outside those fonts, such as a name in kanji, fall back to the viewer's system font.
+- The images make no outside requests. Text is drawn as glyph outlines (Geist and Geist Mono, shaped with HarfBuzz), because GitHub serves README images under a CSP that can block embedded fonts. Characters outside those fonts, such as a name in kanji, fall back to the viewer's system font.
 - The GitHub mobile app ignores `<picture>` and always shows the light images.
 - Commit search only covers default branches. The rhythm panel is a sample of up to 100 commits per month, so it describes habits, not totals.
 
