@@ -1,6 +1,6 @@
 {
   "name": "gitsona",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One command to turn your real GitHub activity into a profile README that looks designed and says something true about you.",
   "type": "module",
   "bin": {
