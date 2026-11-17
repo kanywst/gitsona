@@ -19,8 +19,8 @@ import {
   withDisplayFont,
 } from "./render/fonts.ts";
 import { fetchAvatars, render, SECTIONS, type Section } from "./render/index.ts";
+import { VERSION } from "./version.ts";
 
-const VERSION = "0.1.0";
 const ASSETS = "gitsona";
 
 const HELP = `gitsona ${VERSION}

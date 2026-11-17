@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { VERSION } from "./version.ts";
 
 function run(cmd: string, args: string[], cwd?: string): { ok: boolean; out: string } {
   const r = spawnSync(cmd, args, { cwd, encoding: "utf8" });
@@ -50,6 +51,8 @@ export function commitAndPush(dir: string, paths: string[], message: string): "p
   return "pushed";
 }
 
+// Pinned to the release that wrote it, so a profile redraws with the same code each week
+// instead of whatever is on main. Running gitsona --action again moves the pin.
 export const WORKFLOW = `name: gitsona
 
 on:
@@ -73,7 +76,7 @@ jobs:
         with:
           node-version: 22
       - name: Redraw the profile
-        run: npx -y --allow-git=all github:kanywst/gitsona "\${{ github.repository_owner }}" --out . --quiet
+        run: npx -y gitsona@${VERSION} "\${{ github.repository_owner }}" --out . --quiet
         env:
           # The default token sees public activity. For private contribution counts, add a
           # fine-grained token with read access to your repos as the GITSONA_TOKEN secret.
