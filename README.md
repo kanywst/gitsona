@@ -3,10 +3,10 @@
 Draws your GitHub profile README from what you actually do on GitHub. One command, no hosted service.
 
 ```sh
-npx --allow-git=all github:kanywst/gitsona
+npx gitsona
 ```
 
-`--allow-git=all` is needed on npm 12 and later, which refuses packages fetched from git by default. Older npm ignores it.
+To run the unreleased code on `main` instead, use `npx --allow-git=all github:kanywst/gitsona`. `--allow-git=all` is needed on npm 12 and later, which refuses packages fetched from git by default. Older npm ignores it.
 
 It reads your public activity, works out what you build and how you work, and writes a `README.md` and a folder of SVGs to `./<you>`. Push that folder to your `<you>/<you>` repository and it shows on your profile.
 
@@ -46,7 +46,7 @@ The example above and below is the author's own profile, drawn from live data.
 ## Usage
 
 ```sh
-npx --allow-git=all github:kanywst/gitsona [user] [options]
+npx gitsona [user] [options]
 ```
 
 With no user, it draws the account behind your token. The token comes from `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`.
@@ -97,7 +97,7 @@ Six presets ship with the package, all under the SIL Open Font License. The firs
 
 The generated part of `README.md` sits between `<!-- gitsona:start -->` and `<!-- gitsona:end -->`. Anything you write outside those markers stays. A README without markers keeps its old content below the new block; `--replace` overwrites it instead.
 
-With `--action`, a workflow redraws the profile every Monday and commits only when something changed. The default `GITHUB_TOKEN` sees public activity. For private contribution counts, add a token with read access to your repositories as the `GITSONA_TOKEN` secret.
+With `--action`, a workflow redraws the profile every Monday and commits only when something changed. It runs the gitsona version that wrote it, so a new release never changes your profile on its own; run `--action` again to move to it. The default `GITHUB_TOKEN` sees public activity. For private contribution counts, add a token with read access to your repositories as the `GITSONA_TOKEN` secret.
 
 ## Notes
 
