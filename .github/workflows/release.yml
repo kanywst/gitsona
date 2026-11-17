@@ -38,7 +38,16 @@ jobs:
       - run: bunx tsc --noEmit
       - run: bun test
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        # The first version was published by hand, since npm only lets a trusted
+        # publisher be added to a package that already exists. Skip a version
+        # that is already on npm so its tag still gets a GitHub release.
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          if npm view "gitsona@$version" version >/dev/null 2>&1; then
+            echo "gitsona@$version is already on npm; skipping publish."
+          else
+            npm publish --provenance --access public
+          fi
       - name: GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
