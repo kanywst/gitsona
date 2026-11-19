@@ -65,6 +65,7 @@ The token comes from `GITSONA_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth to
 
 - Images make no outside requests. Text is drawn as glyph outlines shaped with HarfBuzz, since GitHub's image CSP can block embedded fonts. Characters outside the chosen faces, such as a name in kanji, fall back to the viewer's system font.
 - The GitHub mobile app ignores `<picture>` and always shows the light images.
+- Upstream counts merged PRs in repositories owned by others: not you, and not an organization you belong to. Organizations whose membership the token can't see (private membership with the default Actions token) count as others'. Add `GITSONA_TOKEN` with `read:org` to leave them out.
 - Commit search covers default branches only, and the rhythm panel samples up to 100 commits per month: it describes habits, not totals.
 
 ## Development
