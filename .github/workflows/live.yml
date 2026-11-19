@@ -29,7 +29,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           USER_TO_DRAW: ${{ inputs.user || 'kanywst' }}
-        run: bun src/cli.ts "$USER_TO_DRAW" --out "$RUNNER_TEMP/profile" --preview --save-raw "$RUNNER_TEMP/raw.json"
+        run: bun src/cli.ts "$USER_TO_DRAW" --out "$RUNNER_TEMP/profile" --preview --sections all --save-raw "$RUNNER_TEMP/raw.json"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: live-profile
