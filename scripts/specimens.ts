@@ -38,7 +38,8 @@ function tile(name: (typeof TYPESET_NAMES)[number], mode: Mode): string {
   return doc
     .render(parts.join(""))
     .replace(/id="([^"]+)"/g, `id="${name}-$1"`)
-    .replace(/href="#/g, `href="#${name}-`);
+    .replace(/href="#/g, `href="#${name}-`)
+    .replace(/url\(#/g, `url(#${name}-`);
 }
 
 for (const mode of ["light", "dark"] as const) {
