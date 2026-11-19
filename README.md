@@ -9,21 +9,14 @@
   <img alt="Example hero: a contour map of the last 12 months of contributions next to the name kt, the headline Security, authorization and AI agents, and four numbers" src="docs/example/hero-light.svg" width="100%">
 </picture>
 
-```sh
-npx gitsona --preview
-```
+It reads your public activity, works out what you build and how you work, and writes a `README.md` plus SVGs for your profile repo. Nothing is hosted: the images are plain files in your own repo and make no outside requests. The examples here are the author's profile, drawn from live data.
 
-One command. It reads your public activity, works out what you build and how you work, and writes a `README.md` plus SVGs to `./<you>`. No hosted service, no tracking: every image is a plain file in your own repo. The examples here are the author's profile, drawn from live data.
+## Two steps to your profile
 
-## Three steps to your profile
+1. **Look.** `npx gitsona --preview`, then open `<you>/gitsona-preview.html`.
+2. **Ship.** `npx gitsona --push --action` commits it to your `<you>/<you>` repo (asks first), with a workflow that redraws it every Monday. Leave out `--action` to redraw by hand.
 
-```sh
-npx gitsona --preview   # 1. draw it, then open gitsona-preview.html to look
-npx gitsona --push      # 2. commit it to your <you>/<you> repo (asks first)
-npx gitsona --action    # 3. add a workflow that redraws it every Monday
-```
-
-The token comes from `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`.
+The token comes from `GITSONA_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`, and gitsona draws the account behind it. To draw someone else, name them: `npx gitsona octocat --preview`.
 
 ## What it finds
 
@@ -48,7 +41,7 @@ The token comes from `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`.
   <img alt="Upstream: merged pull requests per project, led by dexidp/dex and spiffe/spire" src="docs/example/upstream-light.svg" width="100%">
 </picture>
 
-Plus project cards for notable repos you haven't pinned, and your language mix year by year. Pick and order them with `--sections hero,traits,rhythm,projects,strata,upstream`.
+Plus project cards for notable repos you haven't pinned, and your language mix year by year. All six are drawn by default; `--sections` picks and orders them.
 
 ## Pick a typeface
 
@@ -57,7 +50,7 @@ Plus project cards for notable repos you haven't pinned, and your language mix y
   <img alt="The six --font presets: pixel, geist, mono, grotesk, rounded and retro, each setting the words Night owl" src="docs/fonts/presets-light.svg" width="100%">
 </picture>
 
-`--font pixel` is the default. Bring your own with `--display-font your.ttf`. All bundled faces are under the SIL Open Font License.
+`--font pixel` is the default. `--display-font your.otf` swaps in your own face for the name and headlines. The bundled faces are under the SIL Open Font License.
 
 ## Options
 
@@ -66,16 +59,16 @@ Plus project cards for notable repos you haven't pinned, and your language mix y
 | `--preview` | Also write `gitsona-preview.html`, framed like a GitHub profile with a light/dark switch |
 | `--push` | Create `<you>/<you>` if needed, commit and push. `-y` skips the questions |
 | `--action` | Add a weekly workflow that redraws the profile |
-| `--sections <list>` | Pick and order the sections |
+| `--sections <list>` | Comma-separated, in order: `hero,traits,rhythm,projects,strata,upstream` |
 | `--font <name>` | `pixel`, `geist`, `mono`, `grotesk`, `rounded` or `retro` |
 | `--accent <hex>` | Accent colour. Defaults to your top language's colour |
 | `--private` | Count private repos in language and topic stats. Their names are never drawn |
 
-`npx gitsona --help` lists the rest (`--out`, `--no-motion`, `--no-cursor`, `--save-raw`, ...). To run unreleased `main`, use `npx --allow-git=all github:kanywst/gitsona` (npm 12+ needs the flag).
+`npx gitsona --help` lists the rest. Output goes to `./<you>`, or to `.` inside a `<you>/<you>` checkout; `-o` changes it.
 
 ## Re-running
 
-- Only the block between `<!-- gitsona:start -->` and `<!-- gitsona:end -->` is redrawn. Anything you write outside it stays. `--replace` overwrites the whole file.
+- Only the block between `<!-- gitsona:start -->` and `<!-- gitsona:end -->` is redrawn. Anything you write outside it stays. A README without the markers keeps its old content below the new block; `--replace` overwrites the whole file instead.
 - The weekly workflow commits only when something changed, and stays on the gitsona version that wrote it. Run `--action` again to upgrade. For private contribution counts, add a token with repo read access as the `GITSONA_TOKEN` secret.
 
 ## Notes
@@ -93,6 +86,8 @@ bun src/cli.ts <user> --preview
 scripts/shot.sh out/<user>/gitsona/*.svg   # SVG to PNG with headless Chromium
 bun scripts/specimens.ts                   # redraw docs/fonts/presets-*.svg
 ```
+
+To try unreleased `main`: `npx --allow-git=all github:kanywst/gitsona` (npm 12 and later need the flag).
 
 ## License
 
