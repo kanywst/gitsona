@@ -41,7 +41,7 @@ The token comes from `GITSONA_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth to
   <img alt="Upstream: merged pull requests per project, led by dexidp/dex and spiffe/spire" src="docs/example/upstream-light.svg" width="100%">
 </picture>
 
-Plus project cards for notable repos you haven't pinned, and your language mix year by year. All six are drawn by default; `--sections` picks and orders them.
+Plus project cards for notable repos you haven't pinned, and your language mix year by year. All six (`hero`, `traits`, `rhythm`, `projects`, `strata`, `upstream`) are drawn by default; `--sections` picks and orders them.
 
 ## Pick a typeface
 
@@ -59,7 +59,7 @@ Plus project cards for notable repos you haven't pinned, and your language mix y
 | `--preview` | Also write `gitsona-preview.html`, framed like a GitHub profile with a light/dark switch |
 | `--push` | Create `<you>/<you>` if needed, commit and push. `-y` skips the questions |
 | `--action` | Add a weekly workflow that redraws the profile |
-| `--sections <list>` | Comma-separated, in order: `hero,traits,rhythm,projects,strata,upstream` |
+| `--sections <list>` | Pick and order sections, such as `hero,rhythm` |
 | `--font <name>` | `pixel`, `geist`, `mono`, `grotesk`, `rounded` or `retro` |
 | `--accent <hex>` | Accent colour. Defaults to your top language's colour |
 | `--private` | Count private repos in language and topic stats. Their names are never drawn |
