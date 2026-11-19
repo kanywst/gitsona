@@ -130,11 +130,25 @@ export function commitAndPush(dir: string, paths: string[], message: string): "p
 
 // Pinned to the release that wrote it, so a profile redraws with the same code each week
 // instead of whatever is on main. Running gitsona --action again moves the pin.
-export const WORKFLOW = `name: gitsona
+export type Schedule = "daily" | "weekly";
+export const SCHEDULES: readonly Schedule[] = ["daily", "weekly"];
+
+/** Off the hour, so the run doesn't queue behind every other scheduled job at :00. */
+const CRON: Record<Schedule, string> = { daily: "23 3 * * *", weekly: "23 3 * * 1" };
+
+/**
+ * The scheduled workflow. `args` are the drawing options of the run that wrote it, so each redraw looks
+ * the same; callers pass only values the CLI has already validated (section names, preset names, hex).
+ */
+export function workflow(schedule: Schedule = "daily", args: string[] = []): string {
+  return WORKFLOW.replace("__CRON__", CRON[schedule]).replace("__ARGS__", args.map((a) => ` ${a}`).join(""));
+}
+
+const WORKFLOW = `name: gitsona
 
 on:
   schedule:
-    - cron: "23 3 * * 1"
+    - cron: "__CRON__"
   workflow_dispatch:
 
 permissions:
@@ -153,7 +167,7 @@ jobs:
         with:
           node-version: 22
       - name: Redraw the profile
-        run: npx -y gitsona@${VERSION} "\${{ github.repository_owner }}" --out . --quiet
+        run: npx -y gitsona@${VERSION} "\${{ github.repository_owner }}" --out . --quiet__ARGS__
         env:
           # The default token sees public activity. For private contribution counts, add a
           # fine-grained token with read access to your repos as the GITSONA_TOKEN secret.
@@ -171,10 +185,10 @@ jobs:
           fi
 `;
 
-export function writeWorkflow(dir: string): string {
+export function writeWorkflow(dir: string, schedule: Schedule = "daily", args: string[] = []): string {
   const wf = join(dir, ".github", "workflows");
   mkdirSync(wf, { recursive: true });
   const path = join(wf, "gitsona.yml");
-  writeFileSync(path, WORKFLOW);
+  writeFileSync(path, workflow(schedule, args));
   return path;
 }
