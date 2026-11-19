@@ -115,13 +115,13 @@ describe("badges", () => {
   test("an own-repos label is backed by own repositories, not upstream PRs", () => {
     const p = analyze(fixture());
     const b = p.badges.find((x) => x.id === "upstream")!;
-    if (b.label === "Own repos") expect(b.fact).toMatch(/repositor(y|ies) of their own/);
+    if (b.label === "Own repos") expect(b.fact).toMatch(/public non-fork repositor(y|ies)$/);
     else expect(b.fact).toMatch(/PRs merged/);
     const raw = fixture();
     raw.prs = [];
     const own = analyze(raw).badges.find((x) => x.id === "upstream")!;
     expect(own.label).toBe("Own repos");
-    expect(own.fact).toMatch(/of their own$/);
+    expect(own.fact).toMatch(/public non-fork repositor(y|ies)$/);
     // Under --private the repo list holds private repos too; the number says "public", so it counts public ones only.
     const withPrivate = fixture();
     withPrivate.prs = [];
@@ -162,5 +162,38 @@ describe("badges", () => {
     expect(label(310).label).toBe("Most days");
     expect(label(340).label).toBe("Every day");
     expect(label(105).fact).toMatch(/^10\d of 36\d days active$/);
+  });
+
+  test("the upstream label follows the merged-PR count it prints", () => {
+    const at = (n: number) => {
+      const raw = fixture();
+      const base = raw.prs[0]!;
+      raw.prs = Array.from({ length: n }, (_, i) => ({ ...base, url: `${base.url}-${i}`, number: i + 1 }));
+      return analyze(raw).badges.find((b) => b.id === "upstream")!;
+    };
+    expect(at(9).label).toBe("Own repos");
+    const ten = at(10);
+    expect(ten.label).toBe("Upstream");
+    expect(ten.fact).toMatch(/^10 PRs merged/);
+  });
+
+  test("the breadth label follows the language numbers it prints", () => {
+    const label = (shares: number[]) => {
+      const raw = fixture();
+      // One repo per language, sized by share, so languageShares reproduces the split.
+      raw.repos = shares.map((share, i) => ({
+        ...raw.repos[0]!,
+        name: `repo-${i}`,
+        languages: [{ name: `L${i}`, color: "#000000", size: Math.round(share * 100000) }],
+      }));
+      return analyze(raw).badges.find((b) => b.id === "breadth")!;
+    };
+    const spec = label([0.7, 0.2, 0.1]);
+    expect(spec.label).toBe("Specialist");
+    expect(spec.fact).toBe("L0 is 70% of the code");
+    expect(label([0.5, 0.4, 0.1]).label).toBe("Focused");
+    const gen = label([0.25, 0.25, 0.2, 0.15, 0.15]);
+    expect(gen.label).toBe("Generalist");
+    expect(gen.fact).toBe("4 languages cover 80% of the code");
   });
 });

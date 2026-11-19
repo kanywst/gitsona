@@ -96,6 +96,8 @@ export interface Profile {
 }
 
 const DAY = 86_400_000;
+/** Merged PRs in others' projects it takes for the hero to call someone "Upstream". */
+const UPSTREAM_BADGE = 10;
 const FALLBACK_COLOR = "#8b949e";
 // Generic domains are everywhere (most repos are a CLI or a web page); they only lead when nothing else does.
 const DOMAIN_DAMPING: Record<string, number> = { devtools: 0.45, web: 0.6, knowledge: 0.8 };
@@ -142,7 +144,7 @@ export function analyze(raw: RawData, now = new Date(raw.fetchedAt)): Profile {
     lifetime: lifetimeStats(raw),
     traits,
     // Public only: a --private run may count private repos elsewhere, but this number says "public".
-    badges: buildBadges(traits, rhythm, lastYear, upstream, languages, live.filter((r) => !r.isPrivate).length),
+    badges: buildBadges(rhythm, lastYear, upstream, languages, live.filter((r) => !r.isPrivate).length),
     rhythm,
     upstream,
     landmarks: pickLandmarks(raw, live, domains, now),
@@ -445,32 +447,32 @@ function buildTraits(
   return traits;
 }
 
+/**
+ * The hero's four facts. Every label is chosen from the very number printed beside it, never from a
+ * blended score, so a label can't claim more than its number shows.
+ */
 function buildBadges(
-  traits: Trait[],
   rhythm: Profile["rhythm"],
   lastYear: Profile["lastYear"],
   upstream: Profile["upstream"],
   languages: LangShare[],
   ownRepos: number,
 ): Badge[] {
-  const side = (id: string) => {
-    const t = traits.find((x) => x.id === id);
-    return t ? (t.value >= 0.5 ? t.right : t.left) : null;
-  };
   const badges: Badge[] = [];
   const projects = upstream.projects.length;
-  const upstreamSide = side("upstream");
-  if (upstreamSide)
-    badges.push({
-      id: "upstream",
-      label: upstreamSide,
-      // The number has to back the label: merged PRs for "Upstream", the person's own work for "Own repos".
-      fact:
-        upstreamSide === "Upstream"
-          ? `${upstream.merged} PRs merged in ${projects} ${projects === 1 ? "project" : "projects"}`
-          : `${ownRepos} public ${ownRepos === 1 ? "repository" : "repositories"} of their own`,
-    });
-  // The label comes from the same number the badge prints, so the two can never disagree.
+  badges.push(
+    upstream.merged >= UPSTREAM_BADGE
+      ? {
+          id: "upstream",
+          label: "Upstream",
+          fact: `${upstream.merged} PRs merged in ${projects} ${projects === 1 ? "project" : "projects"}`,
+        }
+      : {
+          id: "upstream",
+          label: "Own repos",
+          fact: `${ownRepos} public non-fork ${ownRepos === 1 ? "repository" : "repositories"}`,
+        },
+  );
   const ratio = lastYear.days.length ? lastYear.activeDays / lastYear.days.length : 0;
   badges.push({
     id: "cadence",
@@ -486,24 +488,25 @@ function buildBadges(
       fact: `${pct(rhythm.share)} of commits ${fmtHour(a)}–${fmtHour(b)}`,
     });
   }
-  let acc = 0;
-  let l80 = 0;
-  for (const l of languages) {
-    if (acc >= 0.8) break;
-    acc += l.share;
-    l80++;
-  }
-  const breadth = side("breadth");
   const top = languages[0];
-  if (breadth)
-    badges.push({
-      id: "breadth",
-      label: breadth,
-      fact:
-        breadth === "Specialist" && top
-          ? `${top.name} is ${pct(top.share)} of the code`
-          : `${l80} ${l80 === 1 ? "language covers" : "languages cover"} 80%`,
-    });
+  if (top) {
+    let acc = 0;
+    let l80 = 0;
+    for (const l of languages) {
+      if (acc >= 0.8) break;
+      acc += l.share;
+      l80++;
+    }
+    badges.push(
+      top.share >= 0.6
+        ? { id: "breadth", label: "Specialist", fact: `${top.name} is ${pct(top.share)} of the code` }
+        : {
+            id: "breadth",
+            label: l80 >= 4 ? "Generalist" : "Focused",
+            fact: `${l80} ${l80 === 1 ? "language covers" : "languages cover"} 80% of the code`,
+          },
+    );
+  }
   return badges;
 }
 
