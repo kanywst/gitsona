@@ -53,6 +53,8 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
   // GitHub's sidebar already shows the bio, website and X handle, so only what it can't show goes here.
   const bio = opts.bio ?? null;
   if (bio) out.push(mdText(bio), "");
+  // The card shows the facts; the sentence that ties them together reads better as text, on a phone too.
+  if (has("hero")) out.push(mdText(p.summary), "");
   const lines: string[] = [];
   if (p.recent.length) {
     const links = p.recent.slice(0, 3).map((r) => `[${mdText(r.name)}](${r.url})`);

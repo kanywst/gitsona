@@ -52,6 +52,8 @@ describe("readme block", () => {
     expect(heroOnly).toContain("**Last merged upstream** [Fix \\[edge\\] case in spire]");
     expect(heroOnly).toMatch(/alt="[^"]*Night owl: \d+% of commits/);
     expect(heroOnly).not.toContain("###");
+    // The sentence that sums the card up is text under it, readable at any width.
+    expect(heroOnly).toContain(`\n\n${p.summary}\n\n`);
   });
 
   test("the upstream line is not repeated when the Upstream section is drawn", () => {
