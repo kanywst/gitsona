@@ -128,8 +128,6 @@ export function commitAndPush(dir: string, paths: string[], message: string): "p
   return "pushed";
 }
 
-// Pinned to the release that wrote it, so a profile redraws with the same code each week
-// instead of whatever is on main. Running gitsona --action again moves the pin.
 export type Schedule = "daily" | "weekly";
 export const SCHEDULES: readonly Schedule[] = ["daily", "weekly"];
 
@@ -144,6 +142,8 @@ export function workflow(schedule: Schedule = "daily", args: string[] = []): str
   return WORKFLOW.replace("__CRON__", CRON[schedule]).replace("__ARGS__", args.map((a) => ` ${a}`).join(""));
 }
 
+// Pinned to the release that wrote it, so every scheduled redraw runs the same code instead of
+// whatever is on main. Running gitsona --action again moves the pin.
 const WORKFLOW = `name: gitsona
 
 on:
