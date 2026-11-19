@@ -470,13 +470,13 @@ function buildBadges(
           ? `${upstream.merged} PRs merged in ${projects} ${projects === 1 ? "project" : "projects"}`
           : `${ownRepos} public ${ownRepos === 1 ? "repository" : "repositories"} of their own`,
     });
-  const cadence = side("cadence");
-  if (cadence)
-    badges.push({
-      id: "cadence",
-      label: cadence,
-      fact: `${lastYear.activeDays} of ${lastYear.days.length} days active`,
-    });
+  // The label comes from the same number the badge prints, so the two can never disagree.
+  const ratio = lastYear.days.length ? lastYear.activeDays / lastYear.days.length : 0;
+  badges.push({
+    id: "cadence",
+    label: ratio >= 0.7 ? "Every day" : ratio >= 0.4 ? "Most days" : "In bursts",
+    fact: `${lastYear.activeDays} of ${lastYear.days.length} days active`,
+  });
   if (rhythm.samples) {
     const [a, b] = rhythm.window;
     badges.push({

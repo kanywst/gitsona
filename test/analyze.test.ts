@@ -144,4 +144,20 @@ describe("badges", () => {
     );
     expect(after).toBe(before);
   });
+
+  test("the cadence label follows the active-day count it prints, so they never disagree", () => {
+    const label = (active: number) => {
+      const raw = fixture();
+      const days = raw.years.flatMap((y) => y.days).sort((x, y) => x.date.localeCompare(y.date));
+      // Spread the active days evenly (about `active` a year), so the weeks look steady even when few days are active.
+      days.forEach((d, i) => {
+        d.count = Math.floor((i * active) / 365) !== Math.floor(((i + 1) * active) / 365) ? 3 : 0;
+      });
+      return analyze(raw).badges.find((b) => b.id === "cadence")!;
+    };
+    expect(label(105).label).toBe("In bursts");
+    expect(label(200).label).toBe("Most days");
+    expect(label(300).label).toBe("Every day");
+    expect(label(105).fact).toMatch(/^10\d of 36\d days active$/);
+  });
 });
