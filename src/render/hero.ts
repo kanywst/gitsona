@@ -1,6 +1,6 @@
 import type { Profile } from "../analyze.ts";
 import { makeField, normalize } from "./contour.ts";
-import { fitSize, measure, wrap } from "./fonts.ts";
+import { ellipsize, fitSize, measure, wrap } from "./fonts.ts";
 import { Doc, esc, fmt, r1 } from "./svg.ts";
 import type { Theme } from "./theme.ts";
 
@@ -64,6 +64,32 @@ export function asciiTerrain(p: Profile, cols: number, rows: number): string[] {
   );
 }
 
+const HANDLE_SIZE = 20;
+
+/**
+ * Fits the name and the @handle on one line `avail` wide. The name shrinks first; a handle that still
+ * does not fit is shortened, and left out when too little room is left (the title bar names the login).
+ * Offsets are relative to the start of the line.
+ */
+export function nameLine(
+  name: string,
+  login: string,
+  avail: number,
+): { name: string; size: number; handle: string | null; handleX: number } {
+  const gap = 18;
+  const handle = `@${login}`;
+  const hw = measure(handle, "mono", HANDLE_SIZE);
+  let size = fitSize(name, "display", 72, avail - gap - hw, 36);
+  if (measure(name, "display", size) + gap + hw <= avail) {
+    return { name, size, handle, handleX: measure(name, "display", size) + gap };
+  }
+  size = fitSize(name, "display", 72, avail, 36);
+  const shown = ellipsize(name, "display", size, avail);
+  const room = avail - measure(shown, "display", size) - gap;
+  const short = room >= 90 ? ellipsize(handle, "mono", HANDLE_SIZE, room) : null;
+  return { name: shown, size, handle: short, handleX: measure(shown, "display", size) + gap };
+}
+
 /** Keeps only the characters of `line` that fall in `set`; the rest become spaces, so tones stay aligned. */
 function only(line: string, set: string): string {
   return [...line].map((c) => (set.includes(c) ? c : " ")).join("");
@@ -91,7 +117,8 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
   const vx = rx + Math.max(...facts.map(([k]) => measure(`${k}:`, "mono", fs))) + measure("00", "mono", fs);
   const valueW = W - 44 - vx;
   const rows = facts.map(([k, v]): [string, string[]] => [k, wrap(v, "mono", fs, valueW, 2)]);
-  const nameSize = fitSize(p.displayName, "display", 72, W - 44 - rx - 40, 36);
+  const head = nameLine(p.displayName, p.login, W - 44 - rx);
+  const nameSize = head.size;
   const nameY = top + 52 + nameSize * 0.72;
   const ruleY = nameY + 26;
   const rowsY = ruleY + 44;
@@ -148,15 +175,10 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
   );
 
   // Right column: name, rule, rows.
-  parts.push(doc.text(rx - nameSize * 0.04, nameY, p.displayName, { font: "display", size: nameSize, fill: t.ink }));
-  const handle = `@${p.login}`;
-  parts.push(
-    doc.text(rx + measure(p.displayName, "display", nameSize) + 18, nameY, handle, {
-      font: "mono",
-      size: 20,
-      fill: t.accent,
-    }),
-  );
+  parts.push(doc.text(rx - nameSize * 0.04, nameY, head.name, { font: "display", size: nameSize, fill: t.ink }));
+  if (head.handle) {
+    parts.push(doc.text(rx + head.handleX, nameY, head.handle, { font: "mono", size: HANDLE_SIZE, fill: t.accent }));
+  }
   parts.push(
     `<line x1="${rx}" x2="${W - 44}" y1="${ruleY}" y2="${ruleY}" stroke="${t.faint}" stroke-width="1.5" stroke-dasharray="6 6"/>`,
   );

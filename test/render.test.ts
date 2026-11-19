@@ -11,7 +11,7 @@ import {
   withDisplayFont,
   wrap,
 } from "../src/render/fonts.ts";
-import { asciiTerrain, RAMP } from "../src/render/hero.ts";
+import { asciiTerrain, nameLine, RAMP } from "../src/render/hero.ts";
 import { render, SECTIONS } from "../src/render/index.ts";
 import { contrast, hexToHsl, theme } from "../src/render/theme.ts";
 import { fixture } from "./fixture.ts";
@@ -127,6 +127,29 @@ describe("typeface presets", () => {
       expect(covers.length, name).toBeGreaterThanOrEqual(1 + long.badges.length + 2);
       for (const c of covers) expect(Number(c[1]) + Number(c[2]), name).toBeLessThanOrEqual(1200 - 44 + 10);
     }
+  });
+
+  test("the name and @handle never run past the card, however long they are", () => {
+    const avail = 616;
+    const cases: [string, string][] = [
+      ["kt", "kanywst"],
+      ["Ada Example", "a".repeat(39)],
+      ["Maximiliana Wolfeschlegelsteinhausen", "b".repeat(39)],
+      ["X".repeat(80), "c"],
+    ];
+    for (const name of TYPESET_NAMES) {
+      useTypeset(TYPESETS[name]);
+      for (const [n, login] of cases) {
+        const line = nameLine(n, login, avail);
+        expect(measure(line.name, "display", line.size), `${name} ${n}`).toBeLessThanOrEqual(avail);
+        if (line.handle) {
+          expect(line.handleX + measure(line.handle, "mono", 20), `${name} ${n}`).toBeLessThanOrEqual(avail);
+        }
+      }
+      // A short name keeps its full handle.
+      expect(nameLine("kt", "kanywst", avail).handle).toBe("@kanywst");
+    }
+    useTypeset(TYPESETS.pixel);
   });
 
   test("without motion the card draws its final frame: no styles, no typing covers", () => {
