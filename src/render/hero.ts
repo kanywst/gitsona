@@ -134,7 +134,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
     `<path d="M1 ${top}V14Q1 1 14 1H${W - 14}Q${W - 1} 1 ${W - 1} 14V${top}Z" fill="${bar}"/>`,
     `<line x1="1" x2="${W - 1}" y1="${top}" y2="${top}" stroke="${t.rule}"/>`,
     ...["#ff5f57", "#febc2e", "#28c840"].map((c, i) => `<circle cx="${28 + i * 20}" cy="22" r="6" fill="${c}"/>`),
-    doc.text(W / 2, 28, `${p.login}@github: ~`, { font: "mono", size: 14, fill: t.faint, anchor: "middle" }),
+    doc.text(W / 2, 28, `${p.login}@github: ~`, { font: "mono", size: 14, fill: t.muted, anchor: "middle" }),
   );
 
   // Prompt.
@@ -150,7 +150,8 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
   const art = asciiTerrain(p, cols, artRows);
   // Three tones: quiet ground, slopes, and the peaks in the accent colour.
   const tones: [string, string][] = [
-    [".:-=", t.contourMajor],
+    // Quiet ground still clears 3:1 against the window, a quarter of the way from faint to muted.
+    [".:-=", mixHex(t.faint, t.muted, 0.25)],
     ["+*", t.muted],
     ["#%@", t.accent],
   ];
@@ -169,7 +170,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
       {
         font: "mono",
         size: 14,
-        fill: t.faint,
+        fill: t.muted,
       },
     ),
   );

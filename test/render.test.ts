@@ -152,6 +152,18 @@ describe("typeface presets", () => {
     useTypeset(TYPESETS.pixel);
   });
 
+  test("every tone on the card clears 3:1 against the window, in both themes", () => {
+    for (const mode of ["light", "dark"] as const) {
+      const t = theme(mode, "#00ADD8");
+      const svg = render(p, { sections: ["hero"], motion: false, accent: "#00ADD8" }, new Map()).files.get(
+        `hero-${mode}.svg`,
+      )!;
+      // Every fill used on text groups and glyph rows, minus the window background and the palette swatches.
+      const fills = new Set([...svg.matchAll(/<g fill="(#[0-9a-f]{6})"/g)].map((m) => m[1]!));
+      for (const f of fills) expect(contrast(f, t.bg), `${mode} ${f}`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
   test("without motion the card draws its final frame: no styles, no typing covers", () => {
     const svg = render(p, { sections: ["hero"], motion: false }, new Map()).files.get("hero-dark.svg")!;
     expect(svg).not.toContain("<style>");
