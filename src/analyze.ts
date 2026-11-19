@@ -141,7 +141,8 @@ export function analyze(raw: RawData, now = new Date(raw.fetchedAt)): Profile {
     lastYear,
     lifetime: lifetimeStats(raw),
     traits,
-    badges: buildBadges(traits, rhythm, lastYear, upstream, languages, live.length),
+    // Public only: a --private run may count private repos elsewhere, but this number says "public".
+    badges: buildBadges(traits, rhythm, lastYear, upstream, languages, live.filter((r) => !r.isPrivate).length),
     rhythm,
     upstream,
     landmarks: pickLandmarks(raw, live, domains, now),
@@ -453,26 +454,29 @@ function buildBadges(
   ownRepos: number,
 ): Badge[] {
   const side = (id: string) => {
-    const t = traits.find((x) => x.id === id)!;
-    return t.value >= 0.5 ? t.right : t.left;
+    const t = traits.find((x) => x.id === id);
+    return t ? (t.value >= 0.5 ? t.right : t.left) : null;
   };
   const badges: Badge[] = [];
   const projects = upstream.projects.length;
   const upstreamSide = side("upstream");
-  badges.push({
-    id: "upstream",
-    label: upstreamSide,
-    // The number has to back the label: merged PRs for "Upstream", the person's own work for "Own repos".
-    fact:
-      upstreamSide === "Upstream"
-        ? `${upstream.merged} PRs merged in ${projects} ${projects === 1 ? "project" : "projects"}`
-        : `${ownRepos} public ${ownRepos === 1 ? "repository" : "repositories"} of their own`,
-  });
-  badges.push({
-    id: "cadence",
-    label: side("cadence"),
-    fact: `${lastYear.activeDays} of ${lastYear.days.length} days active`,
-  });
+  if (upstreamSide)
+    badges.push({
+      id: "upstream",
+      label: upstreamSide,
+      // The number has to back the label: merged PRs for "Upstream", the person's own work for "Own repos".
+      fact:
+        upstreamSide === "Upstream"
+          ? `${upstream.merged} PRs merged in ${projects} ${projects === 1 ? "project" : "projects"}`
+          : `${ownRepos} public ${ownRepos === 1 ? "repository" : "repositories"} of their own`,
+    });
+  const cadence = side("cadence");
+  if (cadence)
+    badges.push({
+      id: "cadence",
+      label: cadence,
+      fact: `${lastYear.activeDays} of ${lastYear.days.length} days active`,
+    });
   if (rhythm.samples) {
     const [a, b] = rhythm.window;
     badges.push({
@@ -490,14 +494,15 @@ function buildBadges(
   }
   const breadth = side("breadth");
   const top = languages[0];
-  badges.push({
-    id: "breadth",
-    label: breadth,
-    fact:
-      breadth === "Specialist" && top
-        ? `${top.name} is ${pct(top.share)} of the code`
-        : `${l80} ${l80 === 1 ? "language covers" : "languages cover"} 80%`,
-  });
+  if (breadth)
+    badges.push({
+      id: "breadth",
+      label: breadth,
+      fact:
+        breadth === "Specialist" && top
+          ? `${top.name} is ${pct(top.share)} of the code`
+          : `${l80} ${l80 === 1 ? "language covers" : "languages cover"} 80%`,
+    });
   return badges;
 }
 

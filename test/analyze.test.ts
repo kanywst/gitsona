@@ -122,5 +122,26 @@ describe("badges", () => {
     const own = analyze(raw).badges.find((x) => x.id === "upstream")!;
     expect(own.label).toBe("Own repos");
     expect(own.fact).toMatch(/of their own$/);
+    // Under --private the repo list holds private repos too; the number says "public", so it counts public ones only.
+    const withPrivate = fixture();
+    withPrivate.prs = [];
+    const before = Number(
+      analyze(withPrivate)
+        .badges.find((x) => x.id === "upstream")!
+        .fact.split(" ")[0],
+    );
+    withPrivate.repos.push({
+      ...withPrivate.repos[0]!,
+      name: "secret-thing",
+      isPrivate: true,
+      isFork: false,
+      isArchived: false,
+    });
+    const after = Number(
+      analyze(withPrivate)
+        .badges.find((x) => x.id === "upstream")!
+        .fact.split(" ")[0],
+    );
+    expect(after).toBe(before);
   });
 });
