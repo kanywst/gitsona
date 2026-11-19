@@ -9,7 +9,8 @@ import { SECTIONS } from "../src/render/index.ts";
 import { fixture } from "./fixture.ts";
 
 const p = analyze(fixture());
-const block = readmeBlock(p, { sections: [...SECTIONS], dir: "./gitsona" });
+const block = readmeBlock(p, { sections: [...SECTIONS], dir: "./gitsona", bio: p.bio });
+const heroOnly = readmeBlock(p, { sections: ["hero"], dir: "./gitsona" });
 
 describe("readme block", () => {
   test("is wrapped in markers and uses picture for both themes", () => {
@@ -41,8 +42,21 @@ describe("readme block", () => {
     expect(b).toContain("Engine &#91;beta&#93; for policies");
   });
 
-  test("omits the bio when asked", () => {
-    expect(readmeBlock(p, { sections: ["hero"], dir: ".", bio: null })).not.toContain("care");
+  test("leaves the bio out unless it is passed, since GitHub's sidebar shows it", () => {
+    expect(heroOnly).not.toContain("care");
+    expect(heroOnly).not.toContain(p.website ?? "no website in the fixture");
+  });
+
+  test("the default hero-only block names recent work and the last upstream merge", () => {
+    expect(heroOnly).toContain("**Lately** [authz-engine](https://github.com/ada/authz-engine)");
+    expect(heroOnly).toContain("**Last merged upstream** [Fix \\[edge\\] case in spire]");
+    expect(heroOnly).toMatch(/alt="[^"]*Night owl: \d+% of commits/);
+    expect(heroOnly).not.toContain("###");
+  });
+
+  test("the upstream line is not repeated when the Upstream section is drawn", () => {
+    expect(block).not.toContain("**Last merged upstream**");
+    expect(block).toContain("Recently merged:");
   });
 });
 
@@ -85,9 +99,22 @@ describe("cli", () => {
     expect(r.stderr).toBe("");
     expect(r.status).toBe(0);
     expect(readFileSync(join(out, "README.md"), "utf8")).toContain(START);
-    expect(readdirSync(join(out, "gitsona")).length).toBeGreaterThan(10);
+    expect(readdirSync(join(out, "gitsona")).sort()).toEqual(["hero-dark.svg", "hero-light.svg"]);
     expect(existsSync(join(out, "gitsona-preview.html"))).toBe(true);
     expect(existsSync(join(out, ".github/workflows/gitsona.yml"))).toBe(true);
+  });
+
+  test("--sections all draws every panel and --bio repeats the bio", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gitsona-all-"));
+    const raw = join(dir, "raw.json");
+    writeFileSync(raw, JSON.stringify(fixture()));
+    const out = join(dir, "out");
+    const r = spawnSync("bun", ["src/cli.ts", "--from-raw", raw, "--out", out, "--sections", "all", "--bio", "-q"], {
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(0);
+    expect(readdirSync(join(out, "gitsona")).length).toBeGreaterThan(10);
+    expect(readFileSync(join(out, "README.md"), "utf8")).toContain("with \\*care\\*");
   });
 
   test("removes images an earlier run drew and this one does not", () => {

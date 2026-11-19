@@ -35,6 +35,7 @@ export interface ReadmeOptions {
   sections: Section[];
   /** Assets directory relative to the README, without a trailing slash. */
   dir: string;
+  /** Text to repeat under the hero; left out by default because the sidebar shows the bio. */
   bio?: string | null;
 }
 
@@ -45,21 +46,24 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
   const has = (s: Section) => sections.includes(s);
 
   if (has("hero")) {
-    out.push(picture(dir, "hero", `${p.displayName} (@${p.login}). ${p.headline}. ${p.summary}`), "");
+    const badges = p.badges.map((b) => `${b.label}: ${b.fact}`).join(". ");
+    out.push(picture(dir, "hero", `${p.displayName} (@${p.login}). ${p.headline}. ${p.summary} ${badges}.`), "");
   }
 
-  const intro: string[] = [];
-  const bio = opts.bio === undefined ? p.bio : opts.bio;
-  if (bio) intro.push(mdText(bio));
+  // GitHub's sidebar already shows the bio, website and X handle, so only what it can't show goes here.
+  const bio = opts.bio ?? null;
+  if (bio) out.push(mdText(bio), "");
+  const lines: string[] = [];
   if (p.recent.length) {
     const links = p.recent.slice(0, 3).map((r) => `[${mdText(r.name)}](${r.url})`);
-    intro.push(`Lately: ${links.join(", ")}.`);
+    lines.push(`**Lately** ${links.join(" · ")}`);
   }
-  const contact: string[] = [];
-  if (p.website) contact.push(`[${p.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}](${p.website})`);
-  if (p.twitter) contact.push(`[@${p.twitter} on X](https://x.com/${p.twitter})`);
-  if (contact.length) intro.push(contact.join(", "));
-  for (const para of intro) out.push(para, "");
+  const last = p.upstream.recentMerged[0];
+  if (last && !has("upstream")) {
+    lines.push(`**Last merged upstream** [${mdText(last.title)}](${last.url}) in \`${last.repo}\``);
+  }
+  // Two short lines read as one block; a trailing backslash is a hard line break in GFM.
+  if (lines.length) out.push(lines.join("\\\n"), "");
 
   if (has("traits")) {
     out.push(`### Working style`, "", picture(dir, "traits", workingStyleAlt(p)), "");
