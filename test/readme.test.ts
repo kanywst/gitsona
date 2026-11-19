@@ -43,6 +43,18 @@ describe("readme block", () => {
     expect(b).toContain("Engine &#91;beta&#93; for policies");
   });
 
+  test("text from GitHub stays inline: newlines collapse, so a bio can't start a heading", () => {
+    const b = readmeBlock(p, { sections: ["hero"], dir: ".", bio: "line one\n\n# Owned\n- item" });
+    expect(b).toContain("line one # Owned - item");
+    expect(b).not.toMatch(/^# Owned/m);
+  });
+
+  test("only github.com links are written for the last upstream merge", () => {
+    const q = analyze(fixture());
+    q.upstream.recentMerged[0] = { ...q.upstream.recentMerged[0]!, url: "javascript:alert(1)" };
+    expect(readmeBlock(q, { sections: ["hero"], dir: "." })).not.toContain("javascript:");
+  });
+
   test("leaves the bio out unless it is passed, since GitHub's sidebar shows it", () => {
     expect(heroOnly).not.toContain("care");
     expect(heroOnly).not.toContain(p.website ?? "no website in the fixture");

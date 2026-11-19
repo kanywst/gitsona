@@ -16,9 +16,20 @@ function esc(s: string): string {
     .replace(/\]/g, "&#93;");
 }
 
-/** Markdown link text: brackets and backticks would break the link. */
+/**
+ * Text from GitHub (a bio, a PR title) set inline: whitespace collapses so a newline can't start a
+ * heading or list, and Markdown punctuation is escaped so it can't end a link or start emphasis.
+ */
 function mdText(s: string): string {
-  return s.replace(/([\\[\]`*_<>])/g, "\\$1");
+  return s
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/([\\[\]`*_<>])/g, "\\$1");
+}
+
+/** Only github.com links go into the README; anything else would be a link we didn't mean to write. */
+function ghUrl(u: string): string | null {
+  return /^https:\/\/github\.com\/[^\s()]+$/.test(u) ? u : null;
 }
 
 function picture(dir: string, base: string, alt: string, width?: string): string {
@@ -61,7 +72,7 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
     lines.push(`**Lately** ${links.join(" · ")}`);
   }
   const last = p.upstream.recentMerged[0];
-  if (last && !has("upstream")) {
+  if (last && !has("upstream") && ghUrl(last.url)) {
     lines.push(`**Last merged upstream** [${mdText(last.title)}](${last.url}) in \`${last.repo}\``);
   }
   // Two short lines read as one block; a trailing backslash is a hard line break in GFM.
