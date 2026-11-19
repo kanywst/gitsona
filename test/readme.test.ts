@@ -49,6 +49,26 @@ describe("readme block", () => {
     expect(b).not.toMatch(/^# Owned/m);
   });
 
+  test("a leading block marker in GitHub text is escaped", () => {
+    for (const [bio, out] of [
+      ["# Hi", "\\# Hi"],
+      ["- x", "\\- x"],
+      ["1. x", "1\\. x"],
+      ["> quote", "\\> quote"],
+      ["--- rule", "\\--- rule"],
+    ]) {
+      expect(readmeBlock(p, { sections: ["hero"], dir: ".", bio: bio! })).toContain(`\n\n${out}\n\n`);
+    }
+  });
+
+  test("links that are not on github.com are left out everywhere", () => {
+    const q = analyze(fixture());
+    q.recent[0] = { ...q.recent[0]!, url: "javascript:alert(1)" };
+    q.landmarks[0] = { ...q.landmarks[0]!, url: "javascript:alert(2)" };
+    q.upstream.recentMerged[1] = { ...q.upstream.recentMerged[1]!, url: "javascript:alert(3)" };
+    expect(readmeBlock(q, { sections: [...SECTIONS], dir: "." })).not.toContain("javascript:");
+  });
+
   test("only github.com links are written for the last upstream merge", () => {
     const q = analyze(fixture());
     q.upstream.recentMerged[0] = { ...q.upstream.recentMerged[0]!, url: "javascript:alert(1)" };

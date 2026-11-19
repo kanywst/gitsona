@@ -21,10 +21,14 @@ function esc(s: string): string {
  * heading or list, and Markdown punctuation is escaped so it can't end a link or start emphasis.
  */
 function mdText(s: string): string {
-  return s
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/([\\[\]`*_<>])/g, "\\$1");
+  return (
+    s
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/([\\[\]`*_<>])/g, "\\$1")
+      // A leading block marker would turn the line into a heading, list, quote or rule.
+      .replace(/^([#+\-=>|]|\d+(?=[.)]))/, (m) => (/^\d/.test(m) ? `${m}\\` : `\\${m}`))
+  );
 }
 
 /** Only github.com links go into the README; anything else would be a link we didn't mean to write. */
@@ -68,7 +72,10 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
   if (has("hero")) out.push(mdText(p.summary), "");
   const lines: string[] = [];
   if (p.recent.length) {
-    const links = p.recent.slice(0, 3).map((r) => `[${mdText(r.name)}](${r.url})`);
+    const links = p.recent
+      .filter((r) => ghUrl(r.url))
+      .slice(0, 3)
+      .map((r) => `[${mdText(r.name)}](${r.url})`);
     lines.push(`**Lately** ${links.join(" · ")}`);
   }
   const last = p.upstream.recentMerged[0];
@@ -88,6 +95,7 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
     out.push(`### Projects`, "");
     out.push(
       p.landmarks
+        .filter((r) => ghUrl(r.url))
         .map(
           (r) =>
             // A Markdown link around a one-line <picture> keeps the card clickable without <a>.
@@ -106,7 +114,7 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
   }
   if (has("upstream")) {
     out.push(`### Upstream`, "", picture(dir, "upstream", upstreamAlt(p)), "");
-    const recent = p.upstream.recentMerged.slice(0, 5);
+    const recent = p.upstream.recentMerged.filter((pr) => ghUrl(pr.url)).slice(0, 5);
     if (recent.length) {
       out.push(
         "Recently merged:",
