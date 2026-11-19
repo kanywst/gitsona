@@ -7,10 +7,10 @@ import { type Mode, theme } from "../src/render/theme.ts";
 
 const FACES: Record<string, string> = {
   pixel: "Pixelify Sans + Geist Mono",
-  geist: "Geist Mono + Geist",
+  geist: "Geist Mono",
   mono: "Geist Mono",
   grotesk: "Space Grotesk + Space Mono",
-  rounded: "Rubik",
+  rounded: "Rubik + Geist Mono",
   retro: "Departure Mono + Geist Mono",
 };
 
@@ -31,7 +31,8 @@ function tile(name: (typeof TYPESET_NAMES)[number], mode: Mode): string {
     doc.text(x, 42, `--font ${name}`, { font: "regular", size: 15, fill: t.accent }),
     doc.text(x, 100, "Night owl", { font: "display", size: 48, fill: t.ink }),
     doc.text(x + measure("Night owl", "display", 48) + 2, 100, "_", { font: "display", size: 48, fill: t.accent }),
-    doc.text(x, 132, "Builds auth engines in Go", { font: "text", size: 19, fill: t.ink }),
+    doc.text(x, 132, "Night owl:", { font: "mono", size: 17, fill: t.accent }) +
+      doc.text(x + measure("Night owl: ", "mono", 17), 132, "56% of commits", { font: "mono", size: 17, fill: t.ink }),
     doc.text(x, 156, FACES[name] ?? "", { font: "regular", size: 13, fill: t.faint }),
   ];
   // Each tile carries its own glyph defs; prefix the ids so faces don't collide in one file.

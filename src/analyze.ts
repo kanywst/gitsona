@@ -17,6 +17,13 @@ export interface Trait {
   evidence: string;
 }
 
+/** A short label and the one number behind it, for the hero. */
+export interface Badge {
+  id: string;
+  label: string;
+  fact: string;
+}
+
 export interface UpstreamProject {
   repo: string;
   owner: string;
@@ -60,6 +67,8 @@ export interface Profile {
     longestStreak: number;
   };
   traits: Trait[];
+  /** The hero's four labels: what the traits and the rhythm add up to, each with its number. */
+  badges: Badge[];
   rhythm: {
     /** grid[weekday 0=Mon][hour 0..23] commit counts in the author's local time. */
     grid: number[][];
@@ -67,6 +76,8 @@ export interface Profile {
     peakHour: number;
     window: [number, number];
     chronotype: string;
+    /** Share of sampled commits that fall in the window. */
+    share: number;
     sentence: string;
     monthly: { month: string; commits: number }[];
   };
@@ -77,6 +88,8 @@ export interface Profile {
     recentMerged: ExternalPR[];
     orgsRun: { org: string; merged: number }[];
     issues: number;
+    /** PR search hit its cap: merged and projects are lower bounds. */
+    truncated: boolean;
   };
   landmarks: Repo[];
   recent: Repo[];
@@ -85,6 +98,10 @@ export interface Profile {
 }
 
 const DAY = 86_400_000;
+/** Merged PRs in others' projects it takes for the hero to call someone "Upstream". */
+const UPSTREAM_BADGE = 10;
+const RHYTHM_MIN_SAMPLES = 30;
+const RHYTHM_MIN_SHARE = 0.3;
 const FALLBACK_COLOR = "#8b949e";
 // Generic domains are everywhere (most repos are a CLI or a web page); they only lead when nothing else does.
 const DOMAIN_DAMPING: Record<string, number> = { devtools: 0.45, web: 0.6, knowledge: 0.8 };
@@ -105,7 +122,7 @@ export function analyze(raw: RawData, now = new Date(raw.fetchedAt)): Profile {
   const languages = languageShares(repos);
   const domains = scoreDomains(live, now);
   const lastYear = lastYearStats(raw, now);
-  const upstream = upstreamStats(raw.prs, ownOrgs, raw.externalIssues);
+  const upstream = { ...upstreamStats(raw.prs, ownOrgs, raw.externalIssues), truncated: raw.prsTruncated === true };
   const rhythm = rhythmStats(raw);
   const traits = buildTraits(raw, { languages, domains, lastYear, upstream, live, now });
 
@@ -130,6 +147,8 @@ export function analyze(raw: RawData, now = new Date(raw.fetchedAt)): Profile {
     lastYear,
     lifetime: lifetimeStats(raw),
     traits,
+    // "Public non-fork" exactly: forks and the profile repo are already out of `repos`; private ones go here.
+    badges: buildBadges(rhythm, lastYear, upstream, languages, repos.filter((r) => !r.isPrivate).length),
     rhythm,
     upstream,
     landmarks: pickLandmarks(raw, live, domains, now),
@@ -249,7 +268,11 @@ function lifetimeStats(raw: RawData): Profile["lifetime"] {
   };
 }
 
-function upstreamStats(prs: ExternalPR[], ownOrgs: Set<string>, issues: number): Profile["upstream"] {
+function upstreamStats(
+  prs: ExternalPR[],
+  ownOrgs: Set<string>,
+  issues: number,
+): Omit<Profile["upstream"], "truncated"> {
   const external = prs.filter((p) => !ownOrgs.has(p.owner.toLowerCase()));
   const byRepo = new Map<string, UpstreamProject>();
   for (const p of external) {
@@ -341,6 +364,7 @@ function rhythmStats(raw: RawData): Profile["rhythm"] {
     peakHour,
     window: [bestStart, (bestStart + 4) % 24],
     chronotype,
+    share: samples ? best / samples : 0,
     sentence,
     monthly: raw.monthlyCommits,
   };
@@ -429,6 +453,85 @@ function buildTraits(
   });
 
   return traits;
+}
+
+/**
+ * The hero's four facts. Every label is chosen from the very number printed beside it, never from a
+ * blended score, so a label can't claim more than its number shows.
+ */
+function buildBadges(
+  rhythm: Profile["rhythm"],
+  lastYear: Profile["lastYear"],
+  upstream: Profile["upstream"],
+  languages: LangShare[],
+  ownRepos: number,
+): Badge[] {
+  const badges: Badge[] = [];
+  const projects = upstream.projects.length;
+  const more = upstream.truncated ? "+" : "";
+  badges.push(
+    upstream.merged >= UPSTREAM_BADGE
+      ? {
+          id: "upstream",
+          label: "Upstream",
+          fact: `${upstream.merged}${more} PRs merged in ${projects}${more} ${projects === 1 && !more ? "project" : "projects"}`,
+        }
+      : {
+          id: "upstream",
+          label: "Own repos",
+          fact: `${ownRepos} public non-fork ${ownRepos === 1 ? "repository" : "repositories"}`,
+        },
+  );
+  const ratio = lastYear.days.length ? lastYear.activeDays / lastYear.days.length : 0;
+  badges.push({
+    id: "cadence",
+    // Words that hold up next to the number: "every" allows one quiet day (today may not have started),
+    // "most" means more than half.
+    label:
+      lastYear.days.length &&
+      (lastYear.activeDays === lastYear.days.length ||
+        (lastYear.activeDays === lastYear.days.length - 1 && lastYear.days.at(-1)!.count === 0))
+        ? "Every day"
+        : ratio >= 0.9
+          ? "Nearly daily"
+          : ratio > 0.5
+            ? "Most days"
+            : ratio >= 0.25
+              ? "Regularly"
+              : "In bursts",
+    fact: `${lastYear.activeDays} of ${lastYear.days.length} days active`,
+  });
+  if (rhythm.samples) {
+    const [a, b] = rhythm.window;
+    // An even spread already puts 1/6 of commits in any 4-hour window; a chronotype needs a clear lean
+    // and enough commits to see it.
+    const leans = rhythm.samples >= RHYTHM_MIN_SAMPLES && rhythm.share >= RHYTHM_MIN_SHARE;
+    badges.push({
+      id: "rhythm",
+      label: leans ? rhythm.chronotype : "Any hour",
+      fact: `${pct(rhythm.share)} of commits ${fmtHour(a)}–${fmtHour(b)}`,
+    });
+  }
+  const top = languages[0];
+  if (top) {
+    let acc = 0;
+    let l80 = 0;
+    for (const l of languages) {
+      if (acc >= 0.8) break;
+      acc += l.share;
+      l80++;
+    }
+    badges.push(
+      top.share >= 0.6
+        ? { id: "breadth", label: "Specialist", fact: `${top.name} is ${pct(top.share)} of the code` }
+        : {
+            id: "breadth",
+            label: l80 >= 4 ? "Generalist" : "Focused",
+            fact: `${l80} ${l80 === 1 ? "language covers" : "languages cover"} 80% of the code`,
+          },
+    );
+  }
+  return badges;
 }
 
 function joinList(items: string[]): string {

@@ -4,12 +4,14 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analyze } from "../src/analyze.ts";
+import { miniMarkdown } from "../src/preview.ts";
 import { END, mergeReadme, readmeBlock, START } from "../src/readme.ts";
 import { SECTIONS } from "../src/render/index.ts";
 import { fixture } from "./fixture.ts";
 
 const p = analyze(fixture());
-const block = readmeBlock(p, { sections: [...SECTIONS], dir: "./gitsona" });
+const block = readmeBlock(p, { sections: [...SECTIONS], dir: "./gitsona", bio: p.bio });
+const heroOnly = readmeBlock(p, { sections: ["hero"], dir: "./gitsona" });
 
 describe("readme block", () => {
   test("is wrapped in markers and uses picture for both themes", () => {
@@ -41,8 +43,62 @@ describe("readme block", () => {
     expect(b).toContain("Engine &#91;beta&#93; for policies");
   });
 
-  test("omits the bio when asked", () => {
-    expect(readmeBlock(p, { sections: ["hero"], dir: ".", bio: null })).not.toContain("care");
+  test("text from GitHub stays inline: newlines collapse, so a bio can't start a heading", () => {
+    const b = readmeBlock(p, { sections: ["hero"], dir: ".", bio: "line one\n\n# Owned\n- item" });
+    expect(b).toContain("line one # Owned - item");
+    expect(b).not.toMatch(/^# Owned/m);
+  });
+
+  test("a leading block marker in GitHub text is escaped", () => {
+    for (const [bio, out] of [
+      ["# Hi", "\\# Hi"],
+      ["- x", "\\- x"],
+      ["1. x", "1\\. x"],
+      ["> quote", "\\> quote"],
+      ["--- rule", "\\--- rule"],
+      ["~~~ fence", "\\~~~ fence"],
+    ]) {
+      expect(readmeBlock(p, { sections: ["hero"], dir: ".", bio: bio! })).toContain(`\n\n${out}\n\n`);
+    }
+  });
+
+  test("links that are not on github.com are left out everywhere", () => {
+    const q = analyze(fixture());
+    q.recent[0] = { ...q.recent[0]!, url: "javascript:alert(1)" };
+    q.landmarks[0] = { ...q.landmarks[0]!, url: "javascript:alert(2)" };
+    q.upstream.recentMerged[1] = { ...q.upstream.recentMerged[1]!, url: "javascript:alert(3)" };
+    expect(readmeBlock(q, { sections: [...SECTIONS], dir: "." })).not.toContain("javascript:");
+  });
+
+  test("no empty Lately line when none of the recent links survive", () => {
+    const q = analyze(fixture());
+    q.recent = q.recent.map((r) => ({ ...r, url: "javascript:void(0)" }));
+    expect(readmeBlock(q, { sections: ["hero"], dir: "." })).not.toContain("**Lately**");
+  });
+
+  test("only github.com links are written for the last upstream merge", () => {
+    const q = analyze(fixture());
+    q.upstream.recentMerged[0] = { ...q.upstream.recentMerged[0]!, url: "javascript:alert(1)" };
+    expect(readmeBlock(q, { sections: ["hero"], dir: "." })).not.toContain("javascript:");
+  });
+
+  test("leaves the bio out unless it is passed, since GitHub's sidebar shows it", () => {
+    expect(heroOnly).not.toContain("care");
+    expect(heroOnly).not.toContain(p.website ?? "no website in the fixture");
+  });
+
+  test("the default hero-only block names recent work and the last upstream merge", () => {
+    expect(heroOnly).toContain("**Lately** [authz-engine](https://github.com/ada/authz-engine)");
+    expect(heroOnly).toContain("**Last merged upstream** [Fix \\[edge\\] case in spire]");
+    expect(heroOnly).toMatch(/alt="[^"]*Night owl: \d+% of commits/);
+    expect(heroOnly).not.toContain("###");
+    // The sentence that sums the card up is text under it, readable at any width.
+    expect(heroOnly).toContain(`\n\n${p.summary}\n\n`);
+  });
+
+  test("the upstream line is not repeated when the Upstream section is drawn", () => {
+    expect(block).not.toContain("**Last merged upstream**");
+    expect(block).toContain("Recently merged:");
   });
 });
 
@@ -85,9 +141,22 @@ describe("cli", () => {
     expect(r.stderr).toBe("");
     expect(r.status).toBe(0);
     expect(readFileSync(join(out, "README.md"), "utf8")).toContain(START);
-    expect(readdirSync(join(out, "gitsona")).length).toBeGreaterThan(10);
+    expect(readdirSync(join(out, "gitsona")).sort()).toEqual(["hero-dark.svg", "hero-light.svg"]);
     expect(existsSync(join(out, "gitsona-preview.html"))).toBe(true);
     expect(existsSync(join(out, ".github/workflows/gitsona.yml"))).toBe(true);
+  });
+
+  test("--sections all draws every panel and --bio repeats the bio", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gitsona-all-"));
+    const raw = join(dir, "raw.json");
+    writeFileSync(raw, JSON.stringify(fixture()));
+    const out = join(dir, "out");
+    const r = spawnSync("bun", ["src/cli.ts", "--from-raw", raw, "--out", out, "--sections", "all", "--bio", "-q"], {
+      encoding: "utf8",
+    });
+    expect(r.status).toBe(0);
+    expect(readdirSync(join(out, "gitsona")).length).toBeGreaterThan(10);
+    expect(readFileSync(join(out, "README.md"), "utf8")).toContain("with \\*care\\*");
   });
 
   test("removes images an earlier run drew and this one does not", () => {
@@ -135,5 +204,20 @@ describe("cli", () => {
     const r = spawnSync("bun", ["src/cli.ts", "--sections", "hero,nope", "--from-raw", "x"], { encoding: "utf8" });
     expect(r.status).toBe(2);
     expect(r.stderr).toContain("Unknown section: nope");
+  });
+});
+
+describe("preview markdown", () => {
+  test("a quote in a link URL cannot break out of the href", () => {
+    const html = miniMarkdown('[title](https://x.test/a"onmouseover="alert(1))');
+    expect(html).toContain('href="https://x.test/a&quot;onmouseover=&quot;alert(1"');
+    expect(html).not.toMatch(/href="[^"]*" onmouseover=/);
+    expect(html).not.toContain('"onmouseover="');
+  });
+
+  test("escaped asterisks in a title stay literal, real bold renders", () => {
+    const html = miniMarkdown("**Lately** [a \\*\\*b\\*\\*](https://x.test)");
+    expect(html).toContain("<strong>Lately</strong>");
+    expect(html).toContain("a **b**</a>");
   });
 });

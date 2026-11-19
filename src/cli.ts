@@ -27,7 +27,7 @@ import {
   type TypesetName,
   withDisplayFont,
 } from "./render/fonts.ts";
-import { fetchAvatars, render, SECTIONS, type Section } from "./render/index.ts";
+import { DEFAULT_SECTIONS, fetchAvatars, render, SECTIONS, type Section } from "./render/index.ts";
 import { VERSION } from "./version.ts";
 
 const HELP = `gitsona ${VERSION}
@@ -46,14 +46,15 @@ Output
       --json             Also write ${ASSETS}/profile.json with the derived numbers
 
 Content
-      --sections <list>  Comma-separated, in order: ${SECTIONS.join(",")}
+      --sections <list>  Comma-separated, in order, or "all": ${SECTIONS.join(",")}
+                         (default: hero, one screen that leaves room for your pins)
       --font <name>      Typeface preset: pixel (default), geist, mono, grotesk, rounded, retro
       --display-font <file>
                          Use your own .ttf/.otf for the name and headlines
       --accent <hex>     Accent colour (default: your top language's colour)
       --no-motion        Skip the contour draw-in animation
-      --no-cursor        Leave out the accent "_" after your name
-      --no-bio           Leave your GitHub bio out of the README
+      --no-cursor        Leave out the blinking cursor on the last prompt
+      --bio              Repeat your GitHub bio under the hero (the sidebar already shows it)
       --private          Count private repositories in language and topic stats
                          (their names are never drawn)
 
@@ -104,6 +105,8 @@ async function main(argv: string[]): Promise<number> {
       "display-font": { type: "string" },
       "no-motion": { type: "boolean" },
       "no-cursor": { type: "boolean" },
+      bio: { type: "boolean" },
+      // Accepted for scripts written for 0.1: the bio is now left out unless --bio asks for it.
       "no-bio": { type: "boolean" },
       private: { type: "boolean" },
       action: { type: "boolean" },
@@ -192,7 +195,7 @@ async function main(argv: string[]): Promise<number> {
   const block = readmeBlock(profile, {
     sections: rendered.sections,
     dir: `./${ASSETS}`,
-    bio: v["no-bio"] ? null : undefined,
+    bio: v.bio && !v["no-bio"] ? profile.bio : null,
   });
   const existing = existsSync(readmePath) ? readFileSync(readmePath, "utf8") : null;
   writeFileSync(readmePath, mergeReadme(existing, block, !!v.replace));
@@ -237,7 +240,8 @@ async function main(argv: string[]): Promise<number> {
 }
 
 function parseSections(s: string | undefined): Section[] {
-  if (!s) return [...SECTIONS];
+  if (!s) return [...DEFAULT_SECTIONS];
+  if (s.trim() === "all") return [...SECTIONS];
   const list = s
     .split(",")
     .map((x) => x.trim())

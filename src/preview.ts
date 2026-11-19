@@ -4,14 +4,17 @@ function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/** Just enough Markdown for the block gitsona writes: headings, paragraphs, lists, links, raw HTML. */
+/** Just enough Markdown for the block gitsona writes: headings, paragraphs, lists, links, bold, hard breaks, raw HTML. */
 export function miniMarkdown(md: string): string {
   const inline = (s: string) =>
     s
       .replace(/\\([\\[\]`*_<>])/g, "\uE000$1")
       .replace(/`([^`]+)`/g, (_, c) => `<code>${esc(c)}</code>`)
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, t, u) => `<a href="${u}">${t}</a>`)
+      // The URL comes from the API, but it lands in an attribute: escape quotes along with the rest.
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, t, u) => `<a href="${esc(u).replace(/"/g, "&quot;")}">${t}</a>`)
+      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
       .replace(/ {2}$/gm, "<br>")
+      .replace(/\\$/gm, "<br>")
       .replace(/\uE000(.)/g, (_, c) => esc(c));
   const blocks = md.split(/\n{2,}/);
   return blocks

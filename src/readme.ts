@@ -16,9 +16,24 @@ function esc(s: string): string {
     .replace(/\]/g, "&#93;");
 }
 
-/** Markdown link text: brackets and backticks would break the link. */
+/**
+ * Text from GitHub (a bio, a PR title) set inline: whitespace collapses so a newline can't start a
+ * heading or list, and Markdown punctuation is escaped so it can't end a link or start emphasis.
+ */
 function mdText(s: string): string {
-  return s.replace(/([\\[\]`*_<>])/g, "\\$1");
+  return (
+    s
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/([\\[\]`*_<>])/g, "\\$1")
+      // A leading block marker would turn the line into a heading, list, quote or rule.
+      .replace(/^([#+\-=>|~]|\d+(?=[.)]))/, (m) => (/^\d/.test(m) ? `${m}\\` : `\\${m}`))
+  );
+}
+
+/** Only github.com links go into the README; anything else would be a link we didn't mean to write. */
+function ghUrl(u: string): string | null {
+  return /^https:\/\/github\.com\/[^\s()]+$/.test(u) ? u : null;
 }
 
 function picture(dir: string, base: string, alt: string, width?: string): string {
@@ -35,6 +50,7 @@ export interface ReadmeOptions {
   sections: Section[];
   /** Assets directory relative to the README, without a trailing slash. */
   dir: string;
+  /** Text to repeat under the hero; left out by default because the sidebar shows the bio. */
   bio?: string | null;
 }
 
@@ -45,21 +61,29 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
   const has = (s: Section) => sections.includes(s);
 
   if (has("hero")) {
-    out.push(picture(dir, "hero", `${p.displayName} (@${p.login}). ${p.headline}. ${p.summary}`), "");
+    const badges = p.badges.map((b) => `${b.label}: ${b.fact}`).join(". ");
+    out.push(picture(dir, "hero", `${p.displayName} (@${p.login}). ${p.headline}. ${p.summary} ${badges}.`), "");
   }
 
-  const intro: string[] = [];
-  const bio = opts.bio === undefined ? p.bio : opts.bio;
-  if (bio) intro.push(mdText(bio));
+  // GitHub's sidebar already shows the bio, website and X handle, so only what it can't show goes here.
+  const bio = opts.bio ?? null;
+  if (bio) out.push(mdText(bio), "");
+  // The card shows the facts; the sentence that ties them together reads better as text, on a phone too.
+  if (has("hero")) out.push(mdText(p.summary), "");
+  const lines: string[] = [];
   if (p.recent.length) {
-    const links = p.recent.slice(0, 3).map((r) => `[${mdText(r.name)}](${r.url})`);
-    intro.push(`Lately: ${links.join(", ")}.`);
+    const links = p.recent
+      .filter((r) => ghUrl(r.url))
+      .slice(0, 3)
+      .map((r) => `[${mdText(r.name)}](${r.url})`);
+    if (links.length) lines.push(`**Lately** ${links.join(" · ")}`);
   }
-  const contact: string[] = [];
-  if (p.website) contact.push(`[${p.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}](${p.website})`);
-  if (p.twitter) contact.push(`[@${p.twitter} on X](https://x.com/${p.twitter})`);
-  if (contact.length) intro.push(contact.join(", "));
-  for (const para of intro) out.push(para, "");
+  const last = p.upstream.recentMerged[0];
+  if (last && !has("upstream") && ghUrl(last.url)) {
+    lines.push(`**Last merged upstream** [${mdText(last.title)}](${last.url}) in \`${last.repo}\``);
+  }
+  // Two short lines read as one block; a trailing backslash is a hard line break in GFM.
+  if (lines.length) out.push(lines.join("\\\n"), "");
 
   if (has("traits")) {
     out.push(`### Working style`, "", picture(dir, "traits", workingStyleAlt(p)), "");
@@ -71,6 +95,7 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
     out.push(`### Projects`, "");
     out.push(
       p.landmarks
+        .filter((r) => ghUrl(r.url))
         .map(
           (r) =>
             // A Markdown link around a one-line <picture> keeps the card clickable without <a>.
@@ -89,7 +114,7 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
   }
   if (has("upstream")) {
     out.push(`### Upstream`, "", picture(dir, "upstream", upstreamAlt(p)), "");
-    const recent = p.upstream.recentMerged.slice(0, 5);
+    const recent = p.upstream.recentMerged.filter((pr) => ghUrl(pr.url)).slice(0, 5);
     if (recent.length) {
       out.push(
         "Recently merged:",

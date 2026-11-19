@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { analyze } from "../src/analyze.ts";
 import { contours, makeField, normalize } from "../src/render/contour.ts";
-import { ellipsize, measure, shape, TYPESET_NAMES, TYPESETS, withDisplayFont, wrap } from "../src/render/fonts.ts";
+import {
+  ellipsize,
+  measure,
+  shape,
+  TYPESET_NAMES,
+  TYPESETS,
+  useTypeset,
+  withDisplayFont,
+  wrap,
+} from "../src/render/fonts.ts";
+import { asciiTerrain, nameLine, RAMP } from "../src/render/hero.ts";
 import { render, SECTIONS } from "../src/render/index.ts";
 import { contrast, hexToHsl, theme } from "../src/render/theme.ts";
 import { fixture } from "./fixture.ts";
@@ -15,6 +25,34 @@ describe("contours", () => {
       expect(l.d.endsWith("Z")).toBe(true);
       expect(l.d).not.toContain("NaN");
     }
+  });
+});
+
+describe("ascii terrain", () => {
+  const p = analyze(fixture());
+  test("fills the grid with ramp characters only", () => {
+    const art = asciiTerrain(p, 40, 12);
+    expect(art).toHaveLength(12);
+    for (const row of art) {
+      expect(row).toHaveLength(40);
+      for (const c of row) expect(RAMP).toContain(c);
+    }
+  });
+
+  test("the heaviest glyph sits where the busiest day is, and time runs west to east", () => {
+    // One loud day late in the year on an otherwise quiet calendar.
+    const loud = 300;
+    const days = p.lastYear.days.map((d, i) => ({ ...d, count: i === loud ? 50 : i % 9 === 0 ? 1 : 0 }));
+    const q = { ...p, lastYear: { ...p.lastYear, days } };
+    const art = asciiTerrain(q, 52, 7);
+    const first = new Date(`${days[0]!.date}T00:00:00Z`);
+    const offset = (first.getUTCDay() + 6) % 7;
+    const weeks = Math.ceil((days.length + offset) / 7);
+    const col = Math.round((Math.floor((loud + offset) / 7) / (weeks - 1)) * 51);
+    const heaviest = RAMP.at(-1)!;
+    const cols = art.flatMap((row) => [...row].flatMap((c, i) => (c === heaviest ? [i] : [])));
+    expect(cols.length).toBeGreaterThan(0);
+    for (const c of cols) expect(Math.abs(c - col)).toBeLessThanOrEqual(2);
   });
 });
 
@@ -68,26 +106,69 @@ describe("typeface presets", () => {
     });
   }
 
-  test("the hero legend never runs into the month labels", () => {
-    // Long enough to wrap both blocks, so the card has to grow.
-    const long = {
-      ...p,
-      headline: "Security, authorization, identity and AI agents",
-      summary:
-        "Builds security tools and authorization engines in Go, TypeScript and Rust, and lands fixes upstream in dex and spire.",
-    };
+  test("the mono role is monospace in every preset, so the ASCII terrain keeps its columns", () => {
     for (const name of TYPESET_NAMES) {
-      const svg = render(long, { sections: ["hero"], motion: false, typeset: TYPESETS[name] }, new Map()).files.get(
+      useTypeset(TYPESETS[name]);
+      const w = measure("0", "mono", 15);
+      for (const c of RAMP.slice(1)) expect(measure(c, "mono", 15), `${name} ${c}`).toBeCloseTo(w, 3);
+    }
+    useTypeset(TYPESETS.pixel);
+  });
+
+  test("fact rows stay inside the card for every preset, even with a long headline", () => {
+    const long = { ...p, headline: "Security, authorization, identity and AI agents for the cloud" };
+    for (const name of TYPESET_NAMES) {
+      const svg = render(long, { sections: ["hero"], motion: true, typeset: TYPESETS[name] }, new Map()).files.get(
         "hero-dark.svg",
       )!;
-      const h = Number(/height="(\d+)"/.exec(svg)![1]);
-      const ys = [...svg.matchAll(/translate\([\d.]+ ([\d.]+)\)/g)].map((m) => Number(m[1]));
-      const months = h - 26;
-      const legend = ys.filter((y) => y < months - 1);
-      expect(Math.max(...legend), name).toBeLessThanOrEqual(months - 24);
+      // Each typed line carries a cover exactly as wide as its text.
+      const covers = [...svg.matchAll(/<rect class="ty" x="([\d.]+)" y="[\d.]+" width="(\d+)"/g)];
+      // The prompt, then one cover per value line.
+      expect(covers.length, name).toBeGreaterThanOrEqual(1 + long.badges.length + 2);
+      for (const c of covers) expect(Number(c[1]) + Number(c[2]), name).toBeLessThanOrEqual(1200 - 44 + 10);
     }
   });
 
+  test("the name and @handle never run past the card, however long they are", () => {
+    const avail = 616;
+    const cases: [string, string][] = [
+      ["kt", "kanywst"],
+      ["Ada Example", "a".repeat(39)],
+      ["Maximiliana Wolfeschlegelsteinhausen", "b".repeat(39)],
+      ["X".repeat(80), "c"],
+    ];
+    for (const name of TYPESET_NAMES) {
+      useTypeset(TYPESETS[name]);
+      for (const [n, login] of cases) {
+        const line = nameLine(n, login, avail);
+        expect(measure(line.name, "display", line.size), `${name} ${n}`).toBeLessThanOrEqual(avail);
+        if (line.handle) {
+          expect(line.handleX + measure(line.handle, "mono", 20), `${name} ${n}`).toBeLessThanOrEqual(avail);
+        }
+      }
+      // A short name keeps its full handle.
+      expect(nameLine("kt", "kanywst", avail).handle).toBe("@kanywst");
+    }
+    useTypeset(TYPESETS.pixel);
+  });
+
+  test("every tone on the card clears 3:1 against the window, in both themes", () => {
+    for (const mode of ["light", "dark"] as const) {
+      const t = theme(mode, "#00ADD8");
+      const svg = render(p, { sections: ["hero"], motion: false, accent: "#00ADD8" }, new Map()).files.get(
+        `hero-${mode}.svg`,
+      )!;
+      // Every fill used on text groups and glyph rows, minus the window background and the palette swatches.
+      const fills = new Set([...svg.matchAll(/<g fill="(#[0-9a-f]{6})"/g)].map((m) => m[1]!));
+      for (const f of fills) expect(contrast(f, t.bg), `${mode} ${f}`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  test("without motion the card draws its final frame: no styles, no typing covers", () => {
+    const svg = render(p, { sections: ["hero"], motion: false }, new Map()).files.get("hero-dark.svg")!;
+    expect(svg).not.toContain("<style>");
+    expect(svg).not.toContain('class="ty"');
+  });
   test("presets draw differently", () => {
     const a = render(p, { sections: ["hero"], motion: false, typeset: TYPESETS.pixel }, new Map()).files.get(
       "hero-dark.svg",

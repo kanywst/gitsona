@@ -7,6 +7,8 @@ import { type Mode, theme } from "./theme.ts";
 
 export const SECTIONS = ["hero", "traits", "rhythm", "projects", "strata", "upstream"] as const;
 export type Section = (typeof SECTIONS)[number];
+/** One screen: the hero carries the key points, and GitHub's own pins and graph show right below. */
+export const DEFAULT_SECTIONS: readonly Section[] = ["hero"];
 
 export interface RenderOptions {
   sections: Section[];

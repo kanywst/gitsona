@@ -60,10 +60,13 @@ jobs:
           bun -e 'import { fixture } from "./test/fixture.ts"; await Bun.write("raw.json", JSON.stringify(fixture()))'
           cd "$RUNNER_TEMP"
           gitsona --version
-          gitsona --from-raw "$GITHUB_WORKSPACE/raw.json" --out profile --preview --action
+          gitsona --from-raw "$GITHUB_WORKSPACE/raw.json" --out profile --preview --action --sections all
           for f in geist mono grotesk rounded retro; do gitsona --from-raw "$GITHUB_WORKSPACE/raw.json" --out "fonts-$f" --font "$f" --sections hero -q; done
           test -s profile/README.md
           test "$(find profile/gitsona -name '*.svg' | wc -l)" -ge 10
+          # The default is the one-screen card: the hero in both themes and nothing else.
+          gitsona --from-raw "$GITHUB_WORKSPACE/raw.json" --out default -q
+          test "$(find default/gitsona -name '*.svg' | wc -l)" -eq 2
       - name: Keep the rendered images for review
         if: matrix.node == 22
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

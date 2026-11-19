@@ -104,3 +104,161 @@ describe("helpers", () => {
     expect(buildHeadline([])).toBe("Software on GitHub");
   });
 });
+
+describe("badges", () => {
+  test("each label comes with the number behind it", () => {
+    const p = analyze(fixture());
+    expect(p.badges.map((b) => b.id)).toEqual(["upstream", "cadence", "rhythm", "breadth"]);
+    for (const b of p.badges) expect(b.fact).toMatch(/\d/);
+  });
+
+  test("an own-repos label is backed by own repositories, not upstream PRs", () => {
+    const p = analyze(fixture());
+    const b = p.badges.find((x) => x.id === "upstream")!;
+    if (b.label === "Own repos") expect(b.fact).toMatch(/public non-fork repositor(y|ies)$/);
+    else expect(b.fact).toMatch(/PRs merged/);
+    const raw = fixture();
+    raw.prs = [];
+    const own = analyze(raw).badges.find((x) => x.id === "upstream")!;
+    expect(own.label).toBe("Own repos");
+    expect(own.fact).toMatch(/public non-fork repositor(y|ies)$/);
+    // Under --private the repo list holds private repos too; the number says "public", so it counts public ones only.
+    const withPrivate = fixture();
+    withPrivate.prs = [];
+    const before = Number(
+      analyze(withPrivate)
+        .badges.find((x) => x.id === "upstream")!
+        .fact.split(" ")[0],
+    );
+    withPrivate.repos.push({
+      ...withPrivate.repos[0]!,
+      name: "secret-thing",
+      isPrivate: true,
+      isFork: false,
+      isArchived: false,
+    });
+    const after = Number(
+      analyze(withPrivate)
+        .badges.find((x) => x.id === "upstream")!
+        .fact.split(" ")[0],
+    );
+    expect(after).toBe(before);
+  });
+
+  test("the cadence label follows the active-day count it prints, so they never disagree", () => {
+    const label = (active: number) => {
+      const raw = fixture();
+      const days = raw.years.flatMap((y) => y.days).sort((x, y) => x.date.localeCompare(y.date));
+      // Spread the active days evenly (about `active` a year), so the weeks look steady even when few days are active.
+      days.forEach((d, i) => {
+        d.count = Math.floor((i * active) / 365) !== Math.floor(((i + 1) * active) / 365) ? 3 : 0;
+      });
+      return analyze(raw).badges.find((b) => b.id === "cadence")!;
+    };
+    expect(label(60).label).toBe("In bursts");
+    expect(label(105).label).toBe("Regularly");
+    expect(label(150).label).toBe("Regularly");
+    expect(label(200).label).toBe("Most days");
+    expect(label(310).label).toBe("Most days");
+    expect(label(340).label).toBe("Nearly daily");
+    expect(label(365).label).toBe("Every day");
+    expect(label(105).fact).toMatch(/^10\d of 36\d days active$/);
+  });
+
+  test("the upstream label follows the merged-PR count it prints", () => {
+    const at = (n: number) => {
+      const raw = fixture();
+      const base = raw.prs[0]!;
+      raw.prs = Array.from({ length: n }, (_, i) => ({ ...base, url: `${base.url}-${i}`, number: i + 1 }));
+      return analyze(raw).badges.find((b) => b.id === "upstream")!;
+    };
+    expect(at(9).label).toBe("Own repos");
+    const ten = at(10);
+    expect(ten.label).toBe("Upstream");
+    expect(ten.fact).toMatch(/^10 PRs merged/);
+  });
+
+  test("the breadth label follows the language numbers it prints", () => {
+    const label = (shares: number[]) => {
+      const raw = fixture();
+      // One repo per language, sized by share, so languageShares reproduces the split.
+      raw.repos = shares.map((share, i) => ({
+        ...raw.repos[0]!,
+        name: `repo-${i}`,
+        languages: [{ name: `L${i}`, color: "#000000", size: Math.round(share * 100000) }],
+      }));
+      return analyze(raw).badges.find((b) => b.id === "breadth")!;
+    };
+    const spec = label([0.7, 0.2, 0.1]);
+    expect(spec.label).toBe("Specialist");
+    expect(spec.fact).toBe("L0 is 70% of the code");
+    expect(label([0.5, 0.4, 0.1]).label).toBe("Focused");
+    const gen = label([0.25, 0.25, 0.2, 0.15, 0.15]);
+    expect(gen.label).toBe("Generalist");
+    expect(gen.fact).toBe("4 languages cover 80% of the code");
+  });
+
+  test("a chronotype needs a clear lean and enough commits; otherwise the badge says Any hour", () => {
+    // The fixture leans hard: 45 commits, 89% of them late at night.
+    expect(analyze(fixture()).badges.find((b) => b.id === "rhythm")!.label).toBe("Night owl");
+    const rhythm = (samples: number) =>
+      analyze({ ...fixture(), commitTimes: fixture().commitTimes.slice(0, samples) }).badges.find(
+        (b) => b.id === "rhythm",
+      );
+    // Too few commits to call it.
+    const few = rhythm(10);
+    expect(few?.label).toBe("Any hour");
+    // An even spread over the day: no window clears 30%.
+    const raw = fixture();
+    raw.commitTimes = Array.from({ length: 240 }, (_, i) => ({
+      date: `2026-03-${String(1 + (i % 28)).padStart(2, "0")}T${String(i % 24).padStart(2, "0")}:15:00+00:00`,
+    }));
+    const even = analyze(raw);
+    expect(even.rhythm.samples).toBe(240);
+    expect(even.badges.find((b) => b.id === "rhythm")!.label).toBe("Any hour");
+  });
+
+  test("a capped PR search reads as a lower bound", () => {
+    const raw = fixture();
+    raw.prsTruncated = true;
+    const b = analyze(raw).badges.find((x) => x.id === "upstream")!;
+    if (b.label === "Upstream") expect(b.fact).toMatch(/^\d+\+ PRs merged in \d+\+ projects$/);
+    const many = fixture();
+    many.prsTruncated = true;
+    const base = many.prs[0]!;
+    many.prs = Array.from({ length: 20 }, (_, i) => ({ ...base, url: `${base.url}-${i}` }));
+    expect(analyze(many).badges.find((x) => x.id === "upstream")!.fact).toMatch(/^20\+ PRs merged in 1\+ projects$/);
+  });
+
+  test("Every day forgives only today being quiet, not a gap earlier in the year", () => {
+    const at = (gap: "none" | "today" | "march") => {
+      const raw = fixture();
+      const days = raw.years.flatMap((y) => y.days).sort((x, y) => x.date.localeCompare(y.date));
+      for (const d of days) d.count = 2;
+      if (gap === "today") days.at(-1)!.count = 0;
+      if (gap === "march") days.find((d) => d.date.endsWith("-03-15"))!.count = 0;
+      return analyze(raw).badges.find((b) => b.id === "cadence")!.label;
+    };
+    expect(at("none")).toBe("Every day");
+    expect(at("today")).toBe("Every day");
+    expect(at("march")).toBe("Nearly daily");
+  });
+
+  test("the own-repos count includes archived public repos, as its wording says", () => {
+    const raw = fixture();
+    raw.prs = [];
+    const before = Number(
+      analyze(raw)
+        .badges.find((x) => x.id === "upstream")!
+        .fact.split(" ")[0],
+    );
+    raw.repos.push({ ...raw.repos[0]!, name: "old-thing", isArchived: true, isPrivate: false, isFork: false });
+    expect(
+      Number(
+        analyze(raw)
+          .badges.find((x) => x.id === "upstream")!
+          .fact.split(" ")[0],
+      ),
+    ).toBe(before + 1);
+  });
+});
