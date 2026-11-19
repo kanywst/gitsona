@@ -88,6 +88,8 @@ export interface Profile {
     recentMerged: ExternalPR[];
     orgsRun: { org: string; merged: number }[];
     issues: number;
+    /** PR search hit its cap: merged and projects are lower bounds. */
+    truncated: boolean;
   };
   landmarks: Repo[];
   recent: Repo[];
@@ -120,7 +122,7 @@ export function analyze(raw: RawData, now = new Date(raw.fetchedAt)): Profile {
   const languages = languageShares(repos);
   const domains = scoreDomains(live, now);
   const lastYear = lastYearStats(raw, now);
-  const upstream = upstreamStats(raw.prs, ownOrgs, raw.externalIssues);
+  const upstream = { ...upstreamStats(raw.prs, ownOrgs, raw.externalIssues), truncated: raw.prsTruncated === true };
   const rhythm = rhythmStats(raw);
   const traits = buildTraits(raw, { languages, domains, lastYear, upstream, live, now });
 
@@ -266,7 +268,11 @@ function lifetimeStats(raw: RawData): Profile["lifetime"] {
   };
 }
 
-function upstreamStats(prs: ExternalPR[], ownOrgs: Set<string>, issues: number): Profile["upstream"] {
+function upstreamStats(
+  prs: ExternalPR[],
+  ownOrgs: Set<string>,
+  issues: number,
+): Omit<Profile["upstream"], "truncated"> {
   const external = prs.filter((p) => !ownOrgs.has(p.owner.toLowerCase()));
   const byRepo = new Map<string, UpstreamProject>();
   for (const p of external) {
@@ -462,12 +468,13 @@ function buildBadges(
 ): Badge[] {
   const badges: Badge[] = [];
   const projects = upstream.projects.length;
+  const more = upstream.truncated ? "+" : "";
   badges.push(
     upstream.merged >= UPSTREAM_BADGE
       ? {
           id: "upstream",
           label: "Upstream",
-          fact: `${upstream.merged} PRs merged in ${projects} ${projects === 1 ? "project" : "projects"}`,
+          fact: `${upstream.merged}${more} PRs merged in ${projects}${more} ${projects === 1 && !more ? "project" : "projects"}`,
         }
       : {
           id: "upstream",

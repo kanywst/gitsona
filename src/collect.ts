@@ -79,6 +79,8 @@ export interface RawData {
   years: YearContrib[];
   prs: ExternalPR[];
   prTotals: { authored: number; external: number; externalMerged: number };
+  /** True when PR search stopped at its 1,000-result cap, so the counts above are lower bounds. */
+  prsTruncated?: boolean;
   externalIssues: number;
   commitTimes: CommitTime[];
   /** Public commits on default branches per calendar month, last 12 months (commit search). */
@@ -180,7 +182,7 @@ export async function collect(gh: GitHub, login: string, opts: CollectOptions): 
 
   // Independent queries run together; the search API calls inside each stay sequential or pooled.
   log("repositories, contribution calendar, pull requests and commit times");
-  const [repos, years, { prs, authored }, externalIssues, { times, monthly }] = await Promise.all([
+  const [repos, years, { prs, authored, truncated }, externalIssues, { times, monthly }] = await Promise.all([
     collectRepos(gh, u.login, opts.includePrivate),
     collectYears(gh, u.login, u.contributionsCollection.contributionYears),
     collectPRs(gh, u.login),
@@ -211,6 +213,7 @@ export async function collect(gh: GitHub, login: string, opts: CollectOptions): 
       external: prs.length,
       externalMerged: prs.filter((p) => p.state === "MERGED").length,
     },
+    prsTruncated: truncated,
     externalIssues,
     commitTimes: times,
     monthlyCommits: monthly,
@@ -314,10 +317,14 @@ async function searchCount(gh: GitHub, q: string): Promise<number> {
   return d.search.issueCount;
 }
 
-async function collectPRs(gh: GitHub, login: string): Promise<{ prs: ExternalPR[]; authored: number }> {
+async function collectPRs(
+  gh: GitHub,
+  login: string,
+): Promise<{ prs: ExternalPR[]; authored: number; truncated: boolean }> {
   const authored = await searchCount(gh, `author:${login} is:pr`);
   const prs: ExternalPR[] = [];
   let after: string | null = null;
+  let truncated = false;
   for (let page = 0; page < 10; page++) {
     const d: {
       search: {
@@ -368,9 +375,11 @@ async function collectPRs(gh: GitHub, login: string): Promise<{ prs: ExternalPR[
       });
     }
     if (!d.search.pageInfo.hasNextPage) break;
+    // Search serves at most 10 pages; more results past the last one means the counts are lower bounds.
+    if (page === 9) truncated = true;
     after = d.search.pageInfo.endCursor;
   }
-  return { prs, authored };
+  return { prs, authored, truncated };
 }
 
 async function collectCommitTimes(

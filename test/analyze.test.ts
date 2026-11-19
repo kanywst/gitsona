@@ -217,4 +217,16 @@ describe("badges", () => {
     expect(even.rhythm.samples).toBe(240);
     expect(even.badges.find((b) => b.id === "rhythm")!.label).toBe("Any hour");
   });
+
+  test("a capped PR search reads as a lower bound", () => {
+    const raw = fixture();
+    raw.prsTruncated = true;
+    const b = analyze(raw).badges.find((x) => x.id === "upstream")!;
+    if (b.label === "Upstream") expect(b.fact).toMatch(/^\d+\+ PRs merged in \d+\+ projects$/);
+    const many = fixture();
+    many.prsTruncated = true;
+    const base = many.prs[0]!;
+    many.prs = Array.from({ length: 20 }, (_, i) => ({ ...base, url: `${base.url}-${i}` }));
+    expect(analyze(many).badges.find((x) => x.id === "upstream")!.fact).toMatch(/^20\+ PRs merged in 1\+ projects$/);
+  });
 });
