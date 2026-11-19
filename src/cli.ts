@@ -53,7 +53,7 @@ Content
                          Use your own .ttf/.otf for the name and headlines
       --accent <hex>     Accent colour (default: your top language's colour)
       --no-motion        Skip the contour draw-in animation
-      --no-cursor        Leave out the accent "_" after your name
+      --no-cursor        Leave out the blinking cursor on the last prompt
       --bio              Repeat your GitHub bio under the hero (the sidebar already shows it)
       --private          Count private repositories in language and topic stats
                          (their names are never drawn)

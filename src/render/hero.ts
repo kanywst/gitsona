@@ -1,13 +1,13 @@
 import type { Profile } from "../analyze.ts";
-import { contours, makeField, normalize } from "./contour.ts";
-import { ellipsize, fitSize, measure, typeset, wrap } from "./fonts.ts";
-import { Doc, esc, fmt, r1, rng } from "./svg.ts";
+import { makeField, normalize } from "./contour.ts";
+import { fitSize, measure, wrap } from "./fonts.ts";
+import { Doc, esc, fmt, r1 } from "./svg.ts";
 import type { Theme } from "./theme.ts";
 
 const W = 1200;
-const H_MIN = 400;
-const CHIP_H = 66;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** Density ramp, lightest to heaviest: one character per cell of the terrain. */
+export const RAMP = " .:-=+*#%@";
 
 export function fmtDate(iso: string): string {
   const d = new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso);
@@ -15,206 +15,220 @@ export function fmtDate(iso: string): string {
 }
 
 /**
- * The last twelve months of contributions as relief: every day is a hill whose height is its
- * contribution count, west to east is time, and the contour lines are drawn once when the image loads.
+ * The last twelve months as ASCII terrain: days sit on a week × weekday lattice, each day raises a
+ * hill as high as its contribution count, and every character cell takes the glyph for its height.
+ * West to east is time. Returns one string per row.
  */
-export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: boolean } = {}): string {
-  // Text first: the card grows to fit wider faces or longer headlines instead of overlapping.
-  const left = 56;
-  const colW = 520;
-  const nameSize = fitSize(p.displayName, "display", 104, colW + 60, 48);
-  const headline = wrap(p.headline, "text", 30, colW, 2);
-  const summary = wrap(p.summary, "regular", 19, colW + 40, 3);
-  const textBottom = 76 + 22 + nameSize * 0.7 + 44 + headline.length * 35 + 2 + summary.length * 26;
-  // Badge row 30px under the text; the month labels sit under it, 26px off the bottom edge.
-  const chipY = Math.max(textBottom + 30, H_MIN - CHIP_H - 62);
-  const H = Math.ceil(chipY + CHIP_H + 62);
-  const doc = new Doc(W, H, t, `${p.displayName} (@${p.login}): ${p.headline}`);
+export function asciiTerrain(p: Profile, cols: number, rows: number): string[] {
   const days = p.lastYear.days;
   const max = Math.max(1, ...days.map((d) => d.count));
-
-  // Terrain frame: days are laid out on a week × weekday lattice spread over the card.
-  const x0 = 40;
-  const x1 = W - 40;
-  const y0 = 64;
-  // Terrain stays above the badges so its peak marker never runs under them.
-  const y1 = chipY - 20;
   const first = days[0] ? new Date(`${days[0].date}T00:00:00Z`) : new Date();
   const offset = (first.getUTCDay() + 6) % 7;
   const weeks = Math.ceil((days.length + offset) / 7);
-  const pos = (i: number): [number, number] => {
-    const k = i + offset;
-    const wk = Math.floor(k / 7);
-    const wd = k % 7;
-    return [x0 + (wk / Math.max(1, weeks - 1)) * (x1 - x0), y0 + (wd / 6) * (y1 - y0)];
-  };
-  const hills = days.map((d, i) => ({ xy: pos(i), h: Math.sqrt(d.count / max) })).filter((h) => h.h > 0);
-  const rand = rng(p.login);
-  const phase = [rand() * 6, rand() * 6, rand() * 6];
-  const sx = 2 * 20 ** 2;
-  const sy = 2 * 30 ** 2;
-  const cell = 6;
+  // Work in a field twice as fine as the character grid, with cells roughly as tall as a glyph.
+  const fw = cols * 2;
+  const fh = rows * 4;
+  const pad = 1.5;
+  const hills = days
+    .map((d, i) => {
+      const k = i + offset;
+      const x = pad + (Math.floor(k / 7) / Math.max(1, weeks - 1)) * (fw - 2 * pad);
+      const y = pad + ((k % 7) / 6) * (fh - 2 * pad);
+      return { x, y, h: Math.sqrt(d.count / max) };
+    })
+    .filter((h) => h.h > 0);
+  const sx = 2 * (fw / 60) ** 2;
+  const sy = 2 * (fh / 10) ** 2;
   const field = normalize(
-    makeField(Math.ceil(W / cell) + 1, Math.ceil(H / cell) + 1, cell, (x, y) => {
+    makeField(fw + 1, fh + 1, 1, (x, y) => {
       let v = 0;
-      for (const { xy, h } of hills) {
-        const dx = x - xy[0];
-        const dy = y - xy[1];
-        if (dx > 70 || dx < -70) continue;
-        v += h * Math.exp(-(dx * dx) / sx - (dy * dy) / sy);
+      for (const h of hills) {
+        const dx = x - h.x;
+        if (dx > fw / 10 || dx < -fw / 10) continue;
+        const dy = y - h.y;
+        v += h.h * Math.exp(-(dx * dx) / sx - (dy * dy) / sy);
       }
-      // A faint swell so quiet stretches still read as land rather than an empty sheet.
-      v += 0.05 * (Math.sin(x / 97 + phase[0]!) + Math.sin(y / 61 + phase[1]!) + Math.sin((x + y) / 143 + phase[2]!));
       return v;
     }),
   );
-  const levels = Array.from({ length: 13 }, (_, i) => 0.1 + i * 0.068);
-  const lines = contours(field, levels, 18);
-
-  doc.def(
-    `<linearGradient id="veil" x1="0" x2="1" y1="0" y2="0">` +
-      `<stop offset="0" stop-color="${t.bg}" stop-opacity="0.94"/>` +
-      `<stop offset="0.36" stop-color="${t.bg}" stop-opacity="0.86"/>` +
-      `<stop offset="0.56" stop-color="${t.bg}" stop-opacity="0"/>` +
-      `</linearGradient>` +
-      `<clipPath id="card"><rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="13"/></clipPath>`,
+  const at = (i: number, j: number) => {
+    const fx = Math.round((i / Math.max(1, cols - 1)) * fw);
+    const fy = Math.round((j / Math.max(1, rows - 1)) * fh);
+    return field.values[fy * field.cols + fx]!;
+  };
+  // Normalise over the cells actually drawn, so the highest cell always gets the heaviest glyph.
+  const cells = Array.from({ length: rows }, (_, j) => Array.from({ length: cols }, (_, i) => at(i, j)));
+  const top = Math.max(1e-9, ...cells.flat());
+  return cells.map((row) =>
+    row.map((v) => RAMP[Math.min(RAMP.length - 1, Math.floor((v / top) ** 0.8 * RAMP.length))]).join(""),
   );
-  if (opts.motion !== false)
-    doc.style(
-      `.c{animation:draw 2.6s cubic-bezier(.25,.6,.2,1) backwards}` +
-        `@keyframes draw{from{stroke-dashoffset:var(--l)}}` +
-        `.pk{animation:rise .8s ease-out 1.6s backwards}` +
-        `@keyframes rise{from{opacity:0;transform:translateY(6px)}}` +
-        `@media (prefers-reduced-motion:reduce){.c,.pk{animation:none}}`,
-    );
+}
 
-  const terrain = lines
-    .map((c) => {
-      const major = c.index % 4 === 3;
-      const top = c.index >= levels.length - 3;
-      const stroke = top ? t.accent : major ? t.contourMajor : t.contour;
-      const width = top ? 1.4 : major ? 1.3 : 0.9;
-      const delay = c.index * 90;
-      return `<path class="c" d="${c.d}" fill="none" stroke="${stroke}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${c.length + 2}" style="--l:${c.length + 2};animation-delay:${delay}ms"/>`;
-    })
-    .join("");
+/** Keeps only the characters of `line` that fall in `set`; the rest become spaces, so tones stay aligned. */
+function only(line: string, set: string): string {
+  return [...line].map((c) => (set.includes(c) ? c : " ")).join("");
+}
 
-  // Month graticule along the bottom edge.
-  const ticks: string[] = [];
-  days.forEach((d, i) => {
-    if (!d.date.endsWith("-01")) return;
-    const [x] = pos(i);
-    const label = MONTHS[+d.date.slice(5, 7) - 1]!;
-    ticks.push(
-      `<line x1="${r1(x)}" y1="${y0 - 18}" x2="${r1(x)}" y2="${H - 44}" stroke="${t.rule}" stroke-width="1" stroke-dasharray="2 5"/>`,
-      doc.text(x, H - 26, d.date.endsWith("01-01") ? `${label} ${d.date.slice(0, 4)}` : label, {
-        font: "regular",
+/**
+ * A terminal running `gitsona <login>`: the year as ASCII terrain in the logo slot, and the facts as
+ * fetch-style rows that type themselves in.
+ */
+export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: boolean } = {}): string {
+  const motion = opts.motion !== false;
+  const L = 44;
+  const top = 44; // title bar
+  // Right column: the name, then the rows.
+  const rx = 540;
+  const fs = 22; // row size: large enough to survive a phone-width README
+  const lh = 37;
+  const joined = new Date(p.joined);
+  const facts: [string, string][] = [
+    ["Role", p.headline],
+    ...p.badges.map((b): [string, string] => [b.label, b.fact]),
+    ["Since", `${MONTHS[joined.getUTCMonth()]} ${joined.getUTCFullYear()}`],
+  ];
+  // Values line up one column after the longest key, as fetch tools do.
+  const vx = rx + Math.max(...facts.map(([k]) => measure(`${k}:`, "mono", fs))) + measure("00", "mono", fs);
+  const valueW = W - 44 - vx;
+  const rows = facts.map(([k, v]): [string, string[]] => [k, wrap(v, "mono", fs, valueW, 2)]);
+  const nameSize = fitSize(p.displayName, "display", 72, W - 44 - rx - 40, 36);
+  const nameY = top + 52 + nameSize * 0.72;
+  const ruleY = nameY + 26;
+  const rowsY = ruleY + 44;
+  const lineCount = rows.reduce((n, [, v]) => n + v.length, 0);
+  const paletteY = rowsY + (lineCount - 1) * lh + 30;
+  const H = Math.max(500, Math.ceil(paletteY + 20 + 64));
+  const doc = new Doc(W, H, t, `${p.displayName} (@${p.login}): ${p.headline}`);
+  const parts: string[] = [];
+
+  // Window chrome.
+  const bar = mixHex(t.bg, t.contour, 0.75);
+  parts.push(
+    `<path d="M1 ${top}V14Q1 1 14 1H${W - 14}Q${W - 1} 1 ${W - 1} 14V${top}Z" fill="${bar}"/>`,
+    `<line x1="1" x2="${W - 1}" y1="${top}" y2="${top}" stroke="${t.rule}"/>`,
+    ...["#ff5f57", "#febc2e", "#28c840"].map((c, i) => `<circle cx="${28 + i * 20}" cy="22" r="6" fill="${c}"/>`),
+    doc.text(W / 2, 28, `${p.login}@github: ~`, { font: "mono", size: 14, fill: t.faint, anchor: "middle" }),
+  );
+
+  // Prompt.
+  const prompt = `$ gitsona ${p.login}`;
+  parts.push(typed(doc, t, L, top + 42, prompt, { font: "mono", size: 17, fill: t.muted }, motion ? 150 : -1));
+
+  // Logo slot: the year as ASCII terrain, in three tones.
+  const artSize = 15;
+  const adv = measure("0", "mono", artSize);
+  const artTop = top + 86;
+  const artRows = Math.max(10, Math.floor((paletteY - artTop) / 20) + 1);
+  const cols = Math.floor((rx - L - 36) / adv);
+  const art = asciiTerrain(p, cols, artRows);
+  // Three tones: quiet ground, slopes, and the peaks in the accent colour.
+  const tones: [string, string][] = [
+    [".:-=", t.contourMajor],
+    ["+*", t.muted],
+    ["#%@", t.accent],
+  ];
+  art.forEach((line, j) => {
+    const y = artTop + j * 20;
+    const g = tones
+      .map(([set, fill]) => doc.text(L, y, only(line, set), { font: "mono", size: artSize, fill }))
+      .join("");
+    parts.push(motion ? `<g class="ar" style="animation-delay:${450 + j * 45}ms">${g}</g>` : g);
+  });
+  parts.push(
+    doc.text(
+      L,
+      H - 26,
+      `${fmt(p.lastYear.total)} contributions · ${fmtDate(p.lastYear.days[0]?.date ?? p.generatedAt)} → today`,
+      {
+        font: "mono",
         size: 14,
         fill: t.faint,
-        anchor: "middle",
-      }),
-    );
-  });
+      },
+    ),
+  );
 
-  // Peak marker.
-  const peakIdx = days.findIndex((d) => d.date === p.lastYear.peak.date);
-  let peak = "";
-  if (peakIdx >= 0 && p.lastYear.peak.count > 0) {
-    const [px, py] = pos(peakIdx);
-    const label = `${fmt(p.lastYear.peak.count)} on ${fmtDate(p.lastYear.peak.date)}`;
-    const lw = measure(label, "medium", 15);
-    const right = px + 14 + lw < W - 24;
-    const lx = right ? px + 12 : px - 12;
-    peak =
-      `<g class="pk">` +
-      `<path d="M${r1(px)} ${r1(py - 7)}l6.5 11h-13z" fill="${t.accent}" stroke="${t.bg}" stroke-width="2" paint-order="stroke"/>` +
-      doc.text(lx, py + 3, label, {
-        font: "medium",
-        size: 15,
-        fill: t.ink,
-        anchor: right ? "start" : "end",
-        tnum: true,
-        halo: { color: t.bg, width: 2.5 },
-      }) +
-      `</g>`;
-  }
-
-  // Left column: who, what, and a cartographic legend of the numbers that back it.
-  const joined = new Date(p.joined);
-  const since = `@${p.login} on GitHub since ${MONTHS[joined.getUTCMonth()]} ${joined.getUTCFullYear()}`;
-  let y = 76;
-  const head: string[] = [];
-  head.push(doc.text(left, y, ellipsize(since, "medium", 17, colW), { font: "medium", size: 17, fill: t.muted }));
-  y += 22 + nameSize * 0.7;
-  const track = nameSize * (typeset().faces.display.tracking ?? 0);
-  head.push(
-    doc.text(left - nameSize * 0.04, y, p.displayName, {
-      font: "display",
-      size: nameSize,
-      fill: t.ink,
-      tracking: track,
+  // Right column: name, rule, rows.
+  parts.push(doc.text(rx - nameSize * 0.04, nameY, p.displayName, { font: "display", size: nameSize, fill: t.ink }));
+  const handle = `@${p.login}`;
+  parts.push(
+    doc.text(rx + measure(p.displayName, "display", nameSize) + 18, nameY, handle, {
+      font: "mono",
+      size: 20,
+      fill: t.accent,
     }),
   );
-  if (opts.cursor) {
-    const nameW = measure(p.displayName, "display", nameSize, track);
-    head.push(
-      doc.text(left - nameSize * 0.04 + nameW + track, y, "_", { font: "display", size: nameSize, fill: t.accent }),
+  parts.push(
+    `<line x1="${rx}" x2="${W - 44}" y1="${ruleY}" y2="${ruleY}" stroke="${t.faint}" stroke-width="1.5" stroke-dasharray="6 6"/>`,
+  );
+  let y = rowsY;
+  let delay = 900;
+  for (const [key, lines] of rows) {
+    parts.push(doc.text(rx, y, `${key}:`, { font: "mono", size: fs, fill: t.accent }));
+    for (const line of lines) {
+      parts.push(typed(doc, t, vx, y, line, { font: "mono", size: fs, fill: t.ink }, motion ? delay : -1));
+      delay += 220;
+      y += lh;
+    }
+  }
+
+  // Palette row, then the prompt again with a cursor.
+  const pal = ["#e06c75", "#e5c07b", "#98c379", "#56b6c2", "#61afef", "#c678dd", t.accent, t.ink];
+  for (const [i, c] of pal.entries()) {
+    parts.push(`<rect x="${rx + i * 40}" y="${r1(paletteY)}" width="36" height="20" fill="${c}"/>`);
+  }
+  const py = H - 26;
+  parts.push(doc.text(rx, py, "$", { font: "mono", size: 17, fill: t.muted }));
+  if (opts.cursor !== false) {
+    const cw = measure("0", "mono", 17);
+    parts.push(
+      `<rect class="cur" x="${r1(rx + cw * 2)}" y="${py - 16}" width="${r1(cw)}" height="20" fill="${t.accent}"/>`,
     );
   }
-  y += 44;
-  for (const l of headline) {
-    head.push(doc.text(left, y, l, { font: "text", size: 30, fill: t.ink, tracking: -0.4 }));
-    y += 35;
+
+  if (motion) {
+    doc.style(
+      `.ar{animation:ar .35s ease-out backwards}@keyframes ar{from{opacity:0}}` +
+        `.ty{animation:ty .5s forwards}@keyframes ty{99%{transform:translateX(var(--w));opacity:1}100%{transform:translateX(var(--w));opacity:0}}` +
+        `.cur{animation:cur 1.1s steps(1) infinite}@keyframes cur{50%{opacity:0}}` +
+        `@media (prefers-reduced-motion:reduce){.ar,.ty,.cur{animation:none}.ty{opacity:0}}`,
+    );
   }
-  y += 2;
-  for (const l of summary) {
-    head.push(doc.text(left, y, l, { font: "regular", size: 19, fill: t.muted }));
-    y += 26;
-  }
+  return doc.render(parts.join(""));
+}
 
-  // Badges: what the traits and the rhythm add up to, each with the one number behind it.
-  const badges = p.badges;
-  const gap = 14;
-  const cw = badges.length ? (W - 2 * left - gap * (badges.length - 1)) / badges.length : 0;
-  const chips = badges
-    .map((b, i) => {
-      const x = left + i * (cw + gap);
-      const labelSize = fitSize(b.label, "text", 23, cw - 40, 15);
-      return (
-        `<rect x="${r1(x)}" y="${r1(chipY)}" width="${r1(cw)}" height="${CHIP_H}" rx="12" fill="${t.bg}" fill-opacity="0.94" stroke="${t.rule}"/>` +
-        `<rect x="${r1(x + 1)}" y="${r1(chipY + 16)}" width="3" height="${CHIP_H - 32}" rx="1.5" fill="${t.accent}"/>` +
-        doc.text(x + 20, chipY + 29, b.label, { font: "text", size: labelSize, fill: t.ink }) +
-        doc.text(x + 20, chipY + 51, ellipsize(b.fact, "regular", 14, cw - 32), {
-          font: "regular",
-          size: 14,
-          fill: t.muted,
-          tnum: true,
-        })
-      );
-    })
-    .join("");
-
-  const caption = doc.text(
-    W - 40,
-    40,
-    `${fmt(p.lastYear.total)} contributions, ${fmtDate(days[0]?.date ?? "")} to ${fmtDate(days.at(-1)?.date ?? "")}`,
-    {
-      font: "regular",
-      size: 14,
-      fill: t.faint,
-      anchor: "end",
-      halo: { color: t.bg, width: 3 },
-    },
+/**
+ * Text that types itself in: a cover the colour of the window slides off it in steps, one per few
+ * characters. With delay < 0 the text is simply drawn.
+ */
+function typed(
+  doc: Doc,
+  t: Theme,
+  x: number,
+  y: number,
+  s: string,
+  o: { font: "mono"; size: number; fill: string },
+  delay: number,
+): string {
+  const text = doc.text(x, y, s, o);
+  if (delay < 0) return text;
+  const w = Math.ceil(measure(s, o.font, o.size)) + 8;
+  const steps = Math.max(3, Math.round(s.length / 2));
+  return (
+    text +
+    `<rect class="ty" x="${r1(x - 2)}" y="${r1(y - o.size)}" width="${w}" height="${Math.round(o.size * 1.35)}" fill="${t.bg}" style="--w:${w}px;animation-delay:${delay}ms;animation-timing-function:steps(${steps})"/>`
   );
+}
 
-  return doc.render(
-    `<g clip-path="url(#card)">${ticks.filter((_, i) => i % 2 === 0).join("")}${terrain}` +
-      `<rect x="0" y="0" width="${W}" height="${H}" fill="url(#veil)"/>` +
-      `${ticks.filter((_, i) => i % 2 === 1).join("")}${peak}</g>` +
-      caption +
-      head.join("") +
-      chips,
-  );
+function mixHex(a: string, b: string, k: number): string {
+  const pa = [1, 3, 5].map((i) => Number.parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map((i) => Number.parseInt(b.slice(i, i + 2), 16));
+  return `#${pa
+    .map((v, i) =>
+      Math.round(v + (pb[i]! - v) * k)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`;
 }
 
 export { esc };

@@ -1,7 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { analyze } from "../src/analyze.ts";
 import { contours, makeField, normalize } from "../src/render/contour.ts";
-import { ellipsize, measure, shape, TYPESET_NAMES, TYPESETS, withDisplayFont, wrap } from "../src/render/fonts.ts";
+import {
+  ellipsize,
+  measure,
+  shape,
+  TYPESET_NAMES,
+  TYPESETS,
+  useTypeset,
+  withDisplayFont,
+  wrap,
+} from "../src/render/fonts.ts";
+import { asciiTerrain, RAMP } from "../src/render/hero.ts";
 import { render, SECTIONS } from "../src/render/index.ts";
 import { contrast, hexToHsl, theme } from "../src/render/theme.ts";
 import { fixture } from "./fixture.ts";
@@ -15,6 +25,34 @@ describe("contours", () => {
       expect(l.d.endsWith("Z")).toBe(true);
       expect(l.d).not.toContain("NaN");
     }
+  });
+});
+
+describe("ascii terrain", () => {
+  const p = analyze(fixture());
+  test("fills the grid with ramp characters only", () => {
+    const art = asciiTerrain(p, 40, 12);
+    expect(art).toHaveLength(12);
+    for (const row of art) {
+      expect(row).toHaveLength(40);
+      for (const c of row) expect(RAMP).toContain(c);
+    }
+  });
+
+  test("the heaviest glyph sits where the busiest day is, and time runs west to east", () => {
+    // One loud day late in the year on an otherwise quiet calendar.
+    const loud = 300;
+    const days = p.lastYear.days.map((d, i) => ({ ...d, count: i === loud ? 50 : i % 9 === 0 ? 1 : 0 }));
+    const q = { ...p, lastYear: { ...p.lastYear, days } };
+    const art = asciiTerrain(q, 52, 7);
+    const first = new Date(`${days[0]!.date}T00:00:00Z`);
+    const offset = (first.getUTCDay() + 6) % 7;
+    const weeks = Math.ceil((days.length + offset) / 7);
+    const col = Math.round((Math.floor((loud + offset) / 7) / (weeks - 1)) * 51);
+    const heaviest = RAMP.at(-1)!;
+    const cols = art.flatMap((row) => [...row].flatMap((c, i) => (c === heaviest ? [i] : [])));
+    expect(cols.length).toBeGreaterThan(0);
+    for (const c of cols) expect(Math.abs(c - col)).toBeLessThanOrEqual(2);
   });
 });
 
@@ -68,33 +106,34 @@ describe("typeface presets", () => {
     });
   }
 
-  test("hero text stays above the badges, and the badges above the month labels", () => {
-    // Long enough to wrap the headline and the summary, so the card has to grow.
-    const long = {
-      ...p,
-      headline: "Security, authorization, identity and AI agents",
-      summary:
-        "Builds security tools and authorization engines in Go, TypeScript and Rust, and lands fixes upstream in dex and spire.",
-    };
+  test("the mono role is monospace in every preset, so the ASCII terrain keeps its columns", () => {
     for (const name of TYPESET_NAMES) {
-      const svg = render(long, { sections: ["hero"], motion: false, typeset: TYPESETS[name] }, new Map()).files.get(
+      useTypeset(TYPESETS[name]);
+      const w = measure("0", "mono", 15);
+      for (const c of RAMP.slice(1)) expect(measure(c, "mono", 15), `${name} ${c}`).toBeCloseTo(w, 3);
+    }
+    useTypeset(TYPESETS.pixel);
+  });
+
+  test("fact rows stay inside the card for every preset, even with a long headline", () => {
+    const long = { ...p, headline: "Security, authorization, identity and AI agents for the cloud" };
+    for (const name of TYPESET_NAMES) {
+      const svg = render(long, { sections: ["hero"], motion: true, typeset: TYPESETS[name] }, new Map()).files.get(
         "hero-dark.svg",
       )!;
-      const chips = [...svg.matchAll(/<rect x="[\d.]+" y="([\d.]+)" width="[\d.]+" height="(\d+)" rx="12"/g)];
-      expect(chips.length, name).toBe(long.badges.length);
-      const top = Number(chips[0]![1]);
-      const bottom = top + Number(chips[0]![2]);
-      const ys = [...svg.matchAll(/translate\([\d.]+ ([\d.]+)\)/g)].map((m) => Number(m[1]));
-      const above = ys.filter((y) => y < top);
-      const below = ys.filter((y) => y > bottom);
-      // Text baselines need room for descenders above the badges, and month labels a clear gap below.
-      expect(Math.max(...above), name).toBeLessThanOrEqual(top - 12);
-      expect(Math.min(...below), name).toBeGreaterThanOrEqual(bottom + 14);
-      // Every badge says something: a label and its number.
-      expect(ys.filter((y) => y > top && y < bottom).length, name).toBe(long.badges.length * 2);
+      // Each typed line carries a cover exactly as wide as its text.
+      const covers = [...svg.matchAll(/<rect class="ty" x="([\d.]+)" y="[\d.]+" width="(\d+)"/g)];
+      // The prompt, then one cover per value line.
+      expect(covers.length, name).toBeGreaterThanOrEqual(1 + long.badges.length + 2);
+      for (const c of covers) expect(Number(c[1]) + Number(c[2]), name).toBeLessThanOrEqual(1200 - 44 + 10);
     }
   });
 
+  test("without motion the card draws its final frame: no styles, no typing covers", () => {
+    const svg = render(p, { sections: ["hero"], motion: false }, new Map()).files.get("hero-dark.svg")!;
+    expect(svg).not.toContain("<style>");
+    expect(svg).not.toContain('class="ty"');
+  });
   test("presets draw differently", () => {
     const a = render(p, { sections: ["hero"], motion: false, typeset: TYPESETS.pixel }, new Map()).files.get(
       "hero-dark.svg",
