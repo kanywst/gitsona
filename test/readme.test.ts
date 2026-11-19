@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFil
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { analyze } from "../src/analyze.ts";
+import { miniMarkdown } from "../src/preview.ts";
 import { END, mergeReadme, readmeBlock, START } from "../src/readme.ts";
 import { SECTIONS } from "../src/render/index.ts";
 import { fixture } from "./fixture.ts";
@@ -164,5 +165,20 @@ describe("cli", () => {
     const r = spawnSync("bun", ["src/cli.ts", "--sections", "hero,nope", "--from-raw", "x"], { encoding: "utf8" });
     expect(r.status).toBe(2);
     expect(r.stderr).toContain("Unknown section: nope");
+  });
+});
+
+describe("preview markdown", () => {
+  test("a quote in a link URL cannot break out of the href", () => {
+    const html = miniMarkdown('[title](https://x.test/a"onmouseover="alert(1))');
+    expect(html).toContain('href="https://x.test/a&quot;onmouseover=&quot;alert(1"');
+    expect(html).not.toMatch(/href="[^"]*" onmouseover=/);
+    expect(html).not.toContain('"onmouseover="');
+  });
+
+  test("escaped asterisks in a title stay literal, real bold renders", () => {
+    const html = miniMarkdown("**Lately** [a \\*\\*b\\*\\*](https://x.test)");
+    expect(html).toContain("<strong>Lately</strong>");
+    expect(html).toContain("a **b**</a>");
   });
 });

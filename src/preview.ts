@@ -10,7 +10,8 @@ export function miniMarkdown(md: string): string {
     s
       .replace(/\\([\\[\]`*_<>])/g, "\uE000$1")
       .replace(/`([^`]+)`/g, (_, c) => `<code>${esc(c)}</code>`)
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, t, u) => `<a href="${u}">${t}</a>`)
+      // The URL comes from the API, but it lands in an attribute: escape quotes along with the rest.
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, t, u) => `<a href="${esc(u).replace(/"/g, "&quot;")}">${t}</a>`)
       .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
       .replace(/ {2}$/gm, "<br>")
       .replace(/\\$/gm, "<br>")
