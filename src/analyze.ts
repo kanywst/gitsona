@@ -147,8 +147,8 @@ export function analyze(raw: RawData, now = new Date(raw.fetchedAt)): Profile {
     lastYear,
     lifetime: lifetimeStats(raw),
     traits,
-    // Public only: a --private run may count private repos elsewhere, but this number says "public".
-    badges: buildBadges(rhythm, lastYear, upstream, languages, live.filter((r) => !r.isPrivate).length),
+    // "Public non-fork" exactly: forks and the profile repo are already out of `repos`; private ones go here.
+    badges: buildBadges(rhythm, lastYear, upstream, languages, repos.filter((r) => !r.isPrivate).length),
     rhythm,
     upstream,
     landmarks: pickLandmarks(raw, live, domains, now),
@@ -488,7 +488,9 @@ function buildBadges(
     // Words that hold up next to the number: "every" allows one quiet day (today may not have started),
     // "most" means more than half.
     label:
-      lastYear.days.length && lastYear.activeDays >= lastYear.days.length - 1
+      lastYear.days.length &&
+      (lastYear.activeDays === lastYear.days.length ||
+        (lastYear.activeDays === lastYear.days.length - 1 && lastYear.days.at(-1)!.count === 0))
         ? "Every day"
         : ratio >= 0.9
           ? "Nearly daily"

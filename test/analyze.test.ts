@@ -229,4 +229,36 @@ describe("badges", () => {
     many.prs = Array.from({ length: 20 }, (_, i) => ({ ...base, url: `${base.url}-${i}` }));
     expect(analyze(many).badges.find((x) => x.id === "upstream")!.fact).toMatch(/^20\+ PRs merged in 1\+ projects$/);
   });
+
+  test("Every day forgives only today being quiet, not a gap earlier in the year", () => {
+    const at = (gap: "none" | "today" | "march") => {
+      const raw = fixture();
+      const days = raw.years.flatMap((y) => y.days).sort((x, y) => x.date.localeCompare(y.date));
+      for (const d of days) d.count = 2;
+      if (gap === "today") days.at(-1)!.count = 0;
+      if (gap === "march") days.find((d) => d.date.endsWith("-03-15"))!.count = 0;
+      return analyze(raw).badges.find((b) => b.id === "cadence")!.label;
+    };
+    expect(at("none")).toBe("Every day");
+    expect(at("today")).toBe("Every day");
+    expect(at("march")).toBe("Nearly daily");
+  });
+
+  test("the own-repos count includes archived public repos, as its wording says", () => {
+    const raw = fixture();
+    raw.prs = [];
+    const before = Number(
+      analyze(raw)
+        .badges.find((x) => x.id === "upstream")!
+        .fact.split(" ")[0],
+    );
+    raw.repos.push({ ...raw.repos[0]!, name: "old-thing", isArchived: true, isPrivate: false, isFork: false });
+    expect(
+      Number(
+        analyze(raw)
+          .badges.find((x) => x.id === "upstream")!
+          .fact.split(" ")[0],
+      ),
+    ).toBe(before + 1);
+  });
 });
