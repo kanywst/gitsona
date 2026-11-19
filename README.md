@@ -83,8 +83,10 @@ Plus project cards for notable repos you haven't pinned, and your language mix y
 bun install
 bun test
 bun src/cli.ts <user> --preview
-scripts/shot.sh out/<user>/gitsona/*.svg   # SVG to PNG with headless Chromium
-bun scripts/specimens.ts                   # redraw docs/fonts/presets-*.svg
+# SVG to PNG with headless Chromium
+scripts/shot.sh out/<user>/gitsona/*.svg
+# redraw docs/fonts/presets-*.svg
+bun scripts/specimens.ts
 ```
 
 To try unreleased `main`: `npx --allow-git=all github:kanywst/gitsona` (npm 12 and later need the flag).
