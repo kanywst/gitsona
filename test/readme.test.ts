@@ -200,6 +200,44 @@ describe("cli", () => {
     }
   });
 
+  test("the workflow redraws with the same look as the run that wrote it", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gitsona-keep-"));
+    const raw = join(dir, "raw.json");
+    writeFileSync(raw, JSON.stringify(fixture()));
+    const args = ["--sections", "hero,rhythm", "--font", "retro", "--accent", "#ff0066", "--bio", "--no-motion"];
+    const r = spawnSync(
+      "bun",
+      ["src/cli.ts", "--from-raw", raw, "--out", join(dir, "out"), "--action", "-q", ...args],
+      {
+        encoding: "utf8",
+      },
+    );
+    expect(r.status).toBe(0);
+    const wf = Bun.YAML.parse(readFileSync(join(dir, "out/.github/workflows/gitsona.yml"), "utf8")) as {
+      jobs: { refresh: { steps: { run?: string }[] } };
+    };
+    const run = wf.jobs.refresh.steps.find((s) => s.run?.includes("npx"))!.run!;
+    // Parsed as YAML, so a "#" that YAML took for a comment would be missing here.
+    expect(run).toContain('--sections hero,rhythm --font retro --accent "#ff0066" --bio --no-motion');
+  });
+
+  test("--schedule picks the workflow cadence and rejects anything else", () => {
+    const dir = mkdtempSync(join(tmpdir(), "gitsona-sched-"));
+    const raw = join(dir, "raw.json");
+    writeFileSync(raw, JSON.stringify(fixture()));
+    const run = (...args: string[]) =>
+      spawnSync("bun", ["src/cli.ts", "--from-raw", raw, "--out", join(dir, "out"), "--action", "-q", ...args], {
+        encoding: "utf8",
+      });
+    expect(run().status).toBe(0);
+    expect(readFileSync(join(dir, "out/.github/workflows/gitsona.yml"), "utf8")).toContain('cron: "23 3 * * *"');
+    expect(run("--schedule", "weekly").status).toBe(0);
+    expect(readFileSync(join(dir, "out/.github/workflows/gitsona.yml"), "utf8")).toContain('cron: "23 3 * * 1"');
+    const bad = run("--schedule", "hourly");
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr).toContain("--schedule takes daily or weekly");
+  });
+
   test("rejects unknown sections with a usage error", () => {
     const r = spawnSync("bun", ["src/cli.ts", "--sections", "hero,nope", "--from-raw", "x"], { encoding: "utf8" });
     expect(r.status).toBe(2);

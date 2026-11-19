@@ -15,6 +15,8 @@ import {
   ensureCheckout,
   hasGh,
   repoExists,
+  SCHEDULES,
+  type Schedule,
   writeWorkflow,
 } from "./publish.ts";
 import { mergeReadme, readmeBlock } from "./readme.ts";
@@ -59,7 +61,8 @@ Content
                          (their names are never drawn)
 
 Publishing
-      --action           Add a weekly GitHub Actions workflow that redraws the profile
+      --action           Add a GitHub Actions workflow that redraws the profile
+      --schedule <when>  How often the workflow redraws: daily (default) or weekly
       --push             Create <user>/<user> if needed, commit and push (asks first)
   -y, --yes              Don't ask before creating the repository or pushing
 
@@ -110,6 +113,7 @@ async function main(argv: string[]): Promise<number> {
       "no-bio": { type: "boolean" },
       private: { type: "boolean" },
       action: { type: "boolean" },
+      schedule: { type: "string" },
       push: { type: "boolean" },
       yes: { type: "boolean", short: "y" },
       token: { type: "string" },
@@ -134,6 +138,8 @@ async function main(argv: string[]): Promise<number> {
   };
 
   const sections = parseSections(v.sections);
+  const schedule = (v.schedule ?? "daily") as Schedule;
+  if (!SCHEDULES.includes(schedule)) throw new UsageError(`--schedule takes ${SCHEDULES.join(" or ")}.`);
   if (v.accent && !/^#[0-9a-f]{6}$/i.test(v.accent)) throw new UsageError("--accent takes a hex colour like #3fb950.");
   const fontName = (v.font ?? DEFAULT_TYPESET) as TypesetName;
   if (!TYPESET_NAMES.includes(fontName)) {
@@ -207,7 +213,18 @@ async function main(argv: string[]): Promise<number> {
     );
   }
   if (v.preview) writeFileSync(join(out, "gitsona-preview.html"), previewHtml(profile, block));
-  if (v.action) writeWorkflow(out);
+  if (v.action) {
+    // Carry the look of this run into the scheduled ones. Every value here was validated above.
+    const keep: string[] = [];
+    if (v.sections) keep.push("--sections", sections.join(","));
+    if (fontName !== DEFAULT_TYPESET) keep.push("--font", fontName);
+    if (v.accent) keep.push("--accent", `"${v.accent}"`);
+    for (const flag of ["bio", "private", "no-motion", "no-cursor"] as const) if (v[flag]) keep.push(`--${flag}`);
+    if (v["display-font"]) {
+      log(`  note: the workflow can't reach ${v["display-font"]}; scheduled redraws use --font ${fontName}`);
+    }
+    writeWorkflow(out, schedule, keep);
+  }
 
   const rel = relative(process.cwd(), out) || ".";
   const bytes = [...rendered.files.values()].reduce((s, f) => s + f.length, 0);

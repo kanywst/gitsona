@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { WORKFLOW } from "../src/publish.ts";
+import { workflow } from "../src/publish.ts";
 import { VERSION } from "../src/version.ts";
 
 describe("version", () => {
@@ -10,7 +10,15 @@ describe("version", () => {
   });
 
   test("pins the generated workflow to the npm release of this version", () => {
-    expect(WORKFLOW).toContain(`npx -y gitsona@${VERSION} `);
-    expect(WORKFLOW).not.toContain("github:kanywst/gitsona");
+    for (const wf of [workflow("daily"), workflow("weekly")]) {
+      expect(wf).toContain(`npx -y gitsona@${VERSION} `);
+      expect(wf).not.toContain("github:kanywst/gitsona");
+    }
+  });
+
+  test("redraws daily by default, weekly when asked", () => {
+    expect(workflow()).toContain('cron: "23 3 * * *"');
+    expect(workflow("weekly")).toContain('cron: "23 3 * * 1"');
+    expect(workflow()).not.toContain("__CRON__");
   });
 });
