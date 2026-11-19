@@ -98,6 +98,8 @@ export interface Profile {
 const DAY = 86_400_000;
 /** Merged PRs in others' projects it takes for the hero to call someone "Upstream". */
 const UPSTREAM_BADGE = 10;
+const RHYTHM_MIN_SAMPLES = 30;
+const RHYTHM_MIN_SHARE = 0.3;
 const FALLBACK_COLOR = "#8b949e";
 // Generic domains are everywhere (most repos are a CLI or a web page); they only lead when nothing else does.
 const DOMAIN_DAMPING: Record<string, number> = { devtools: 0.45, web: 0.6, knowledge: 0.8 };
@@ -476,15 +478,28 @@ function buildBadges(
   const ratio = lastYear.days.length ? lastYear.activeDays / lastYear.days.length : 0;
   badges.push({
     id: "cadence",
-    // Words that hold up next to the number: "most" means more than half, "every" nearly all of them.
-    label: ratio >= 0.9 ? "Every day" : ratio >= 0.5 ? "Most days" : ratio >= 0.25 ? "Regularly" : "In bursts",
+    // Words that hold up next to the number: "every" allows one quiet day (today may not have started),
+    // "most" means more than half.
+    label:
+      lastYear.days.length && lastYear.activeDays >= lastYear.days.length - 1
+        ? "Every day"
+        : ratio >= 0.9
+          ? "Nearly daily"
+          : ratio > 0.5
+            ? "Most days"
+            : ratio >= 0.25
+              ? "Regularly"
+              : "In bursts",
     fact: `${lastYear.activeDays} of ${lastYear.days.length} days active`,
   });
   if (rhythm.samples) {
     const [a, b] = rhythm.window;
+    // An even spread already puts 1/6 of commits in any 4-hour window; a chronotype needs a clear lean
+    // and enough commits to see it.
+    const leans = rhythm.samples >= RHYTHM_MIN_SAMPLES && rhythm.share >= RHYTHM_MIN_SHARE;
     badges.push({
       id: "rhythm",
-      label: rhythm.chronotype,
+      label: leans ? rhythm.chronotype : "Any hour",
       fact: `${pct(rhythm.share)} of commits ${fmtHour(a)}–${fmtHour(b)}`,
     });
   }

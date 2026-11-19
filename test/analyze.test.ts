@@ -160,7 +160,8 @@ describe("badges", () => {
     expect(label(150).label).toBe("Regularly");
     expect(label(200).label).toBe("Most days");
     expect(label(310).label).toBe("Most days");
-    expect(label(340).label).toBe("Every day");
+    expect(label(340).label).toBe("Nearly daily");
+    expect(label(365).label).toBe("Every day");
     expect(label(105).fact).toMatch(/^10\d of 36\d days active$/);
   });
 
@@ -195,5 +196,25 @@ describe("badges", () => {
     const gen = label([0.25, 0.25, 0.2, 0.15, 0.15]);
     expect(gen.label).toBe("Generalist");
     expect(gen.fact).toBe("4 languages cover 80% of the code");
+  });
+
+  test("a chronotype needs a clear lean and enough commits; otherwise the badge says Any hour", () => {
+    // The fixture leans hard: 45 commits, 89% of them late at night.
+    expect(analyze(fixture()).badges.find((b) => b.id === "rhythm")!.label).toBe("Night owl");
+    const rhythm = (samples: number) =>
+      analyze({ ...fixture(), commitTimes: fixture().commitTimes.slice(0, samples) }).badges.find(
+        (b) => b.id === "rhythm",
+      );
+    // Too few commits to call it.
+    const few = rhythm(10);
+    expect(few?.label).toBe("Any hour");
+    // An even spread over the day: no window clears 30%.
+    const raw = fixture();
+    raw.commitTimes = Array.from({ length: 240 }, (_, i) => ({
+      date: `2026-03-${String(1 + (i % 28)).padStart(2, "0")}T${String(i % 24).padStart(2, "0")}:15:00+00:00`,
+    }));
+    const even = analyze(raw);
+    expect(even.rhythm.samples).toBe(240);
+    expect(even.badges.find((b) => b.id === "rhythm")!.label).toBe("Any hour");
   });
 });
