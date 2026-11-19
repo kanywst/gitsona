@@ -27,7 +27,7 @@ function mdText(s: string): string {
       .trim()
       .replace(/([\\[\]`*_<>])/g, "\\$1")
       // A leading block marker would turn the line into a heading, list, quote or rule.
-      .replace(/^([#+\-=>|]|\d+(?=[.)]))/, (m) => (/^\d/.test(m) ? `${m}\\` : `\\${m}`))
+      .replace(/^([#+\-=>|~]|\d+(?=[.)]))/, (m) => (/^\d/.test(m) ? `${m}\\` : `\\${m}`))
   );
 }
 
@@ -76,7 +76,7 @@ export function readmeBlock(p: Profile, opts: ReadmeOptions): string {
       .filter((r) => ghUrl(r.url))
       .slice(0, 3)
       .map((r) => `[${mdText(r.name)}](${r.url})`);
-    lines.push(`**Lately** ${links.join(" · ")}`);
+    if (links.length) lines.push(`**Lately** ${links.join(" · ")}`);
   }
   const last = p.upstream.recentMerged[0];
   if (last && !has("upstream") && ghUrl(last.url)) {

@@ -56,6 +56,7 @@ describe("readme block", () => {
       ["1. x", "1\\. x"],
       ["> quote", "\\> quote"],
       ["--- rule", "\\--- rule"],
+      ["~~~ fence", "\\~~~ fence"],
     ]) {
       expect(readmeBlock(p, { sections: ["hero"], dir: ".", bio: bio! })).toContain(`\n\n${out}\n\n`);
     }
@@ -67,6 +68,12 @@ describe("readme block", () => {
     q.landmarks[0] = { ...q.landmarks[0]!, url: "javascript:alert(2)" };
     q.upstream.recentMerged[1] = { ...q.upstream.recentMerged[1]!, url: "javascript:alert(3)" };
     expect(readmeBlock(q, { sections: [...SECTIONS], dir: "." })).not.toContain("javascript:");
+  });
+
+  test("no empty Lately line when none of the recent links survive", () => {
+    const q = analyze(fixture());
+    q.recent = q.recent.map((r) => ({ ...r, url: "javascript:void(0)" }));
+    expect(readmeBlock(q, { sections: ["hero"], dir: "." })).not.toContain("**Lately**");
   });
 
   test("only github.com links are written for the last upstream merge", () => {
