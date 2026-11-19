@@ -28,7 +28,14 @@ export interface TextOpts {
   halo?: { color: string; width: number };
 }
 
-const FONT_KEY: Record<FontId, string> = { display: "d", text: "t", regular: "r", medium: "m", semibold: "s" };
+const FONT_KEY: Record<FontId, string> = {
+  display: "d",
+  text: "t",
+  regular: "r",
+  medium: "m",
+  semibold: "s",
+  mono: "o",
+};
 
 export class Doc {
   /** Glyph outlines referenced by text(), emitted once each in <defs>. */

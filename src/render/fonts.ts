@@ -9,7 +9,8 @@ import * as hb from "harfbuzzjs";
  * keep real kerning, and look the same in every viewer.
  */
 
-export type FontId = "display" | "text" | "regular" | "medium" | "semibold";
+/** "mono" is always a monospace face, for anything laid out on a character grid. */
+export type FontId = "display" | "text" | "regular" | "medium" | "semibold" | "mono";
 
 /** One role: a font file and, for a variable font, where to pin its axes. */
 export interface Face {
@@ -44,7 +45,7 @@ const geistMono = (wght: number): Face => ({
 });
 
 /** Data roles shared by most presets: Geist Mono, slightly smaller because a monospace reads large. */
-const MONO_DATA = { regular: geistMono(400), medium: geistMono(500), semibold: geistMono(600) };
+const MONO_DATA = { regular: geistMono(400), medium: geistMono(500), semibold: geistMono(600), mono: geistMono(400) };
 
 /**
  * Bundled typesets, chosen with --font. Each pairs a face for the name and headlines with one for
@@ -83,6 +84,7 @@ export const TYPESETS = {
       regular: { file: "SpaceMono-Regular.ttf", system: MONO, weight: 400, scale: 0.88 },
       medium: { file: "SpaceMono-Regular.ttf", system: MONO, weight: 400, scale: 0.88 },
       semibold: { file: "SpaceMono-Bold.ttf", system: MONO, weight: 700, scale: 0.88 },
+      mono: { file: "SpaceMono-Regular.ttf", system: MONO, weight: 400, scale: 0.88 },
     },
   },
   rounded: {
@@ -93,6 +95,8 @@ export const TYPESETS = {
       regular: { file: "Rubik.ttf", vars: { wght: 400 }, system: SANS, weight: 400 },
       medium: { file: "Rubik.ttf", vars: { wght: 500 }, system: SANS, weight: 500 },
       semibold: { file: "Rubik.ttf", vars: { wght: 600 }, system: SANS, weight: 600 },
+      // Rubik has no monospace cut, so the grid falls back to Geist Mono.
+      mono: geistMono(400),
     },
   },
   retro: {
