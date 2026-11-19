@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { END, START } from "./readme.ts";
 import { VERSION } from "./version.ts";
 
 /** Folder gitsona draws its images into, next to README.md. */
@@ -37,13 +38,62 @@ export function createProfileRepo(login: string): void {
 /** Clones the profile repo into dir when dir is not already a checkout of it. */
 export function ensureCheckout(login: string, dir: string): void {
   if (existsSync(join(dir, ".git"))) return;
+  // `gitsona --preview` then `gitsona --push` leaves an earlier draw in the default folder. It is
+  // redrawn right after the clone, so it can be replaced, but only once the clone has worked.
+  if (isEarlierDraw(dir)) {
+    const tmp = `${dir}.gitsona-clone`;
+    rmSync(tmp, { recursive: true, force: true });
+    try {
+      clone(login, tmp);
+    } catch (e) {
+      rmSync(tmp, { recursive: true, force: true });
+      throw e;
+    }
+    rmSync(dir, { recursive: true, force: true });
+    renameSync(tmp, dir);
+    return;
+  }
   if (existsSync(dir) && readdirSync(dir).length > 0) {
     throw new Error(
       `${dir} exists and is not a git checkout. Pick an empty --out directory, or run gitsona inside your ${login}/${login} clone.`,
     );
   }
+  clone(login, dir);
+}
+
+function clone(login: string, dir: string): void {
   const r = run("gh", ["repo", "clone", `${login}/${login}`, dir]);
   if (!r.ok) throw new Error(`gh repo clone failed: ${r.out}`);
+}
+
+/**
+ * True when dir holds nothing but files a previous gitsona run wrote: a README.md with no text outside
+ * the gitsona markers, drawn images, the preview page, profile.json and the workflow.
+ */
+export function isEarlierDraw(dir: string): boolean {
+  if (!existsSync(dir)) return false;
+  const top = readdirSync(dir);
+  if (!top.length) return false;
+  const allowed = new Set(["README.md", ASSETS, "gitsona-preview.html", ".github", ".DS_Store"]);
+  if (!top.every((e) => allowed.has(e))) return false;
+  if (top.includes("README.md")) {
+    const text = readFileSync(join(dir, "README.md"), "utf8");
+    const s = text.indexOf(START);
+    const e = text.indexOf(END);
+    if (s < 0 || e < s || (text.slice(0, s) + text.slice(e + END.length)).trim()) return false;
+  }
+  if (top.includes(ASSETS)) {
+    const assets = readdirSync(join(dir, ASSETS), { withFileTypes: true });
+    if (!assets.every((f) => f.isFile() && (DRAWN.test(f.name) || f.name === "profile.json" || f.name === ".DS_Store")))
+      return false;
+  }
+  if (top.includes(".github")) {
+    const gh = readdirSync(join(dir, ".github"));
+    if (gh.length !== 1 || gh[0] !== "workflows") return false;
+    const wf = readdirSync(join(dir, ".github", "workflows"));
+    if (wf.length !== 1 || wf[0] !== "gitsona.yml") return false;
+  }
+  return true;
 }
 
 export function commitAndPush(dir: string, paths: string[], message: string): "pushed" | "unchanged" {
