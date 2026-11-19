@@ -1,6 +1,16 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
 import { END, START } from "./readme.ts";
 import { VERSION } from "./version.ts";
 
@@ -41,16 +51,15 @@ export function ensureCheckout(login: string, dir: string): void {
   // `gitsona --preview` then `gitsona --push` leaves an earlier draw in the default folder. It is
   // redrawn right after the clone, so it can be replaced, but only once the clone has worked.
   if (isEarlierDraw(dir)) {
-    const tmp = `${dir}.gitsona-clone`;
-    rmSync(tmp, { recursive: true, force: true });
+    // Clone next to dir, then swap contents in. dir itself stays, since it may be the working directory.
+    const tmp = mkdtempSync(join(dirname(dir), ".gitsona-clone-"));
     try {
       clone(login, tmp);
-    } catch (e) {
+      for (const e of readdirSync(dir)) rmSync(join(dir, e), { recursive: true, force: true });
+      for (const e of readdirSync(tmp)) renameSync(join(tmp, e), join(dir, e));
+    } finally {
       rmSync(tmp, { recursive: true, force: true });
-      throw e;
     }
-    rmSync(dir, { recursive: true, force: true });
-    renameSync(tmp, dir);
     return;
   }
   if (existsSync(dir) && readdirSync(dir).length > 0) {
@@ -71,11 +80,23 @@ function clone(login: string, dir: string): void {
  * the gitsona markers, drawn images, the preview page, profile.json and the workflow.
  */
 export function isEarlierDraw(dir: string): boolean {
-  if (!existsSync(dir)) return false;
+  try {
+    return holdsOnlyADraw(dir);
+  } catch {
+    return false;
+  }
+}
+
+function holdsOnlyADraw(dir: string): boolean {
+  // lstat, so a symlink never counts as one of gitsona's files or folders.
+  const isFile = (p: string) => lstatSync(p).isFile();
+  const isDir = (p: string) => lstatSync(p).isDirectory();
+  if (!existsSync(dir) || !isDir(dir)) return false;
   const top = readdirSync(dir);
   if (!top.length) return false;
-  const allowed = new Set(["README.md", ASSETS, "gitsona-preview.html", ".github", ".DS_Store"]);
-  if (!top.every((e) => allowed.has(e))) return false;
+  const files = new Set(["README.md", "gitsona-preview.html", ".DS_Store"]);
+  const dirs = new Set([ASSETS, ".github"]);
+  if (!top.every((e) => (files.has(e) && isFile(join(dir, e))) || (dirs.has(e) && isDir(join(dir, e))))) return false;
   if (top.includes("README.md")) {
     const text = readFileSync(join(dir, "README.md"), "utf8");
     const s = text.indexOf(START);
@@ -83,15 +104,15 @@ export function isEarlierDraw(dir: string): boolean {
     if (s < 0 || e < s || (text.slice(0, s) + text.slice(e + END.length)).trim()) return false;
   }
   if (top.includes(ASSETS)) {
-    const assets = readdirSync(join(dir, ASSETS), { withFileTypes: true });
-    if (!assets.every((f) => f.isFile() && (DRAWN.test(f.name) || f.name === "profile.json" || f.name === ".DS_Store")))
-      return false;
+    const own = (n: string) => DRAWN.test(n) || n === "profile.json" || n === ".DS_Store";
+    if (!readdirSync(join(dir, ASSETS)).every((n) => own(n) && isFile(join(dir, ASSETS, n)))) return false;
   }
   if (top.includes(".github")) {
     const gh = readdirSync(join(dir, ".github"));
-    if (gh.length !== 1 || gh[0] !== "workflows") return false;
+    if (gh.length !== 1 || gh[0] !== "workflows" || !isDir(join(dir, ".github", "workflows"))) return false;
     const wf = readdirSync(join(dir, ".github", "workflows"));
-    if (wf.length !== 1 || wf[0] !== "gitsona.yml") return false;
+    if (wf.length !== 1 || wf[0] !== "gitsona.yml" || !isFile(join(dir, ".github", "workflows", "gitsona.yml")))
+      return false;
   }
   return true;
 }
