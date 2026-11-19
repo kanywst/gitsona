@@ -14,7 +14,7 @@ It reads your public activity and draws it as a terminal running `gitsona <you>`
 ## Two steps to your profile
 
 1. **Look.** `npx gitsona --preview`, then open `<you>/gitsona-preview.html`.
-2. **Ship.** `npx gitsona --push --action` commits it to your `<you>/<you>` repo (asks first), with a workflow that redraws it every Monday. Leave out `--action` to redraw by hand.
+2. **Ship.** `npx gitsona --push --action` commits it to your `<you>/<you>` repo (asks first), with a workflow that redraws it every day. Leave out `--action` to redraw by hand.
 
 The token comes from `GITSONA_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`, and gitsona draws the account behind it. To draw someone else, name them: `npx gitsona octocat --preview`.
 
@@ -47,7 +47,7 @@ The token comes from `GITSONA_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth to
 | --- | --- |
 | `--preview` | Also write `gitsona-preview.html`, framed like a GitHub profile with a light/dark switch |
 | `--push` | Create `<you>/<you>` if needed, commit and push. `-y` skips the questions |
-| `--action` | Add a weekly workflow that redraws the profile |
+| `--action` | Add a workflow that redraws the profile every day. `--schedule weekly` for Mondays only |
 | `--sections <list>` | `all`, or pick and order panels, such as `hero,rhythm` |
 | `--font <name>` | `pixel`, `geist`, `mono`, `grotesk`, `rounded` or `retro` |
 | `--accent <hex>` | Accent colour. Defaults to your top language's colour |
@@ -59,7 +59,7 @@ The token comes from `GITSONA_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth to
 ## Re-running
 
 - Only the block between `<!-- gitsona:start -->` and `<!-- gitsona:end -->` is redrawn. Anything you write outside it stays. A README without the markers keeps its old content below the new block; `--replace` overwrites the whole file instead.
-- The weekly workflow commits only when something changed, and stays on the gitsona version that wrote it. Run `--action` again to upgrade. For private contribution counts, add a token with repo read access as the `GITSONA_TOKEN` secret.
+- The scheduled workflow redraws with the options of the run that wrote it (`--sections`, `--font`, `--accent`, `--bio` and so on), commits only when something changed, and stays on the gitsona version that wrote it. Run `--action` again to upgrade. For private contribution counts, add a token with repo read access as the `GITSONA_TOKEN` secret.
 
 ## Notes
 
