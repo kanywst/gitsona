@@ -7,7 +7,16 @@ import { analyze } from "./analyze.ts";
 import { collect, type RawData } from "./collect.ts";
 import { GitHub, GitHubError, resolveToken } from "./github.ts";
 import { previewHtml } from "./preview.ts";
-import { commitAndPush, createProfileRepo, ensureCheckout, hasGh, repoExists, writeWorkflow } from "./publish.ts";
+import {
+  ASSETS,
+  commitAndPush,
+  createProfileRepo,
+  DRAWN,
+  ensureCheckout,
+  hasGh,
+  repoExists,
+  writeWorkflow,
+} from "./publish.ts";
 import { mergeReadme, readmeBlock } from "./readme.ts";
 import {
   DEFAULT_TYPESET,
@@ -20,8 +29,6 @@ import {
 } from "./render/fonts.ts";
 import { fetchAvatars, render, SECTIONS, type Section } from "./render/index.ts";
 import { VERSION } from "./version.ts";
-
-const ASSETS = "gitsona";
 
 const HELP = `gitsona ${VERSION}
 Draw a GitHub profile README from what you actually do on GitHub.
@@ -177,9 +184,8 @@ async function main(argv: string[]): Promise<number> {
   for (const [name, svg] of rendered.files) writeFileSync(join(out, ASSETS, name), svg);
   // Images from an earlier run that this run no longer draws (a project that left the cards).
   // Only gitsona's own file names are touched, so anything else kept in the folder stays.
-  const ours = /^(hero|traits|rhythm|strata|upstream|project-[a-z0-9._-]+)-(dark|light)\.svg$/;
   const stale = readdirSync(join(out, ASSETS), { withFileTypes: true }).filter(
-    (e) => e.isFile() && ours.test(e.name) && !rendered.files.has(e.name),
+    (e) => e.isFile() && DRAWN.test(e.name) && !rendered.files.has(e.name),
   );
   for (const e of stale) rmSync(join(out, ASSETS, e.name), { force: true });
   const readmePath = join(out, "README.md");

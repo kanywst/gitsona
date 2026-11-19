@@ -3,6 +3,12 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { VERSION } from "./version.ts";
 
+/** Folder gitsona draws its images into, next to README.md. */
+export const ASSETS = "gitsona";
+
+/** Image names gitsona itself writes into ASSETS; anything else in the folder is someone else's. */
+export const DRAWN = /^(hero|traits|rhythm|strata|upstream|project-[a-z0-9._-]+)-(dark|light)\.svg$/;
+
 function run(cmd: string, args: string[], cwd?: string): { ok: boolean; out: string } {
   const r = spawnSync(cmd, args, { cwd, encoding: "utf8" });
   return { ok: r.status === 0, out: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() };
