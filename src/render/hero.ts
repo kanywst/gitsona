@@ -5,7 +5,8 @@ import { Doc, esc, fmt, r1, rng } from "./svg.ts";
 import type { Theme } from "./theme.ts";
 
 const W = 1200;
-const H_MIN = 480;
+const H_MIN = 400;
+const CHIP_H = 66;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function fmtDate(iso: string): string {
@@ -23,11 +24,11 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
   const colW = 520;
   const nameSize = fitSize(p.displayName, "display", 104, colW + 60, 48);
   const headline = wrap(p.headline, "text", 30, colW, 2);
-  const summary = wrap(p.summary, "regular", 19, colW - 10, 3);
+  const summary = wrap(p.summary, "regular", 19, colW + 40, 3);
   const textBottom = 76 + 22 + nameSize * 0.7 + 44 + headline.length * 35 + 2 + summary.length * 26;
-  const legendRows = 4;
-  // Legend starts 22px under the text, its last row sits 58px above the bottom edge (clear of the months).
-  const H = Math.max(H_MIN, Math.ceil(textBottom + 22 + (legendRows - 1) * 28 + 58));
+  // Badge row 30px under the text; the month labels sit under it, 26px off the bottom edge.
+  const chipY = Math.max(textBottom + 30, H_MIN - CHIP_H - 62);
+  const H = Math.ceil(chipY + CHIP_H + 62);
   const doc = new Doc(W, H, t, `${p.displayName} (@${p.login}): ${p.headline}`);
   const days = p.lastYear.days;
   const max = Math.max(1, ...days.map((d) => d.count));
@@ -36,7 +37,8 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
   const x0 = 40;
   const x1 = W - 40;
   const y0 = 64;
-  const y1 = H - 78;
+  // Terrain stays above the badges so its peak marker never runs under them.
+  const y1 = chipY - 20;
   const first = days[0] ? new Date(`${days[0].date}T00:00:00Z`) : new Date();
   const offset = (first.getUTCDay() + 6) % 7;
   const weeks = Math.ceil((days.length + offset) / 7);
@@ -170,23 +172,24 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
     y += 26;
   }
 
-  const legend: [string, string][] = [
-    ["Contributions, last 12 months", fmt(p.lastYear.total)],
-    ["Longest daily run", `${p.lastYear.longestStreak} days`],
-    ["PRs merged in others' projects", fmt(p.upstream.merged)],
-    ["Stars on own repositories", fmt(p.totals.stars)],
-  ];
-  const ly0 = Math.max(y + 22, H - 58 - (legend.length - 1) * 28);
-  const lx1 = left + 410;
-  const legendSvg = legend
-    .map(([k, v], i) => {
-      const ly = ly0 + i * 28;
-      const kw = measure(k, "regular", 16);
-      const vw = measure(v, "semibold", 16);
+  // Badges: what the traits and the rhythm add up to, each with the one number behind it.
+  const badges = p.badges;
+  const gap = 14;
+  const cw = badges.length ? (W - 2 * left - gap * (badges.length - 1)) / badges.length : 0;
+  const chips = badges
+    .map((b, i) => {
+      const x = left + i * (cw + gap);
+      const labelSize = fitSize(b.label, "text", 23, cw - 40, 15);
       return (
-        doc.text(left, ly, k, { font: "regular", size: 16, fill: t.muted }) +
-        `<line x1="${r1(left + kw + 8)}" y1="${ly - 4}" x2="${r1(lx1 - vw - 8)}" y2="${ly - 4}" stroke="${t.faint}" stroke-width="1.2" stroke-dasharray="0.1 5" stroke-linecap="round"/>` +
-        doc.text(lx1, ly, v, { font: "semibold", size: 16, fill: t.ink, anchor: "end", tnum: true })
+        `<rect x="${r1(x)}" y="${r1(chipY)}" width="${r1(cw)}" height="${CHIP_H}" rx="12" fill="${t.bg}" fill-opacity="0.94" stroke="${t.rule}"/>` +
+        `<rect x="${r1(x + 1)}" y="${r1(chipY + 16)}" width="3" height="${CHIP_H - 32}" rx="1.5" fill="${t.accent}"/>` +
+        doc.text(x + 20, chipY + 29, b.label, { font: "text", size: labelSize, fill: t.ink }) +
+        doc.text(x + 20, chipY + 51, ellipsize(b.fact, "regular", 14, cw - 32), {
+          font: "regular",
+          size: 14,
+          fill: t.muted,
+          tnum: true,
+        })
       );
     })
     .join("");
@@ -194,7 +197,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
   const caption = doc.text(
     W - 40,
     40,
-    `Daily contributions as relief, ${fmtDate(days[0]?.date ?? "")} to ${fmtDate(days.at(-1)?.date ?? "")}`,
+    `${fmt(p.lastYear.total)} contributions, ${fmtDate(days[0]?.date ?? "")} to ${fmtDate(days.at(-1)?.date ?? "")}`,
     {
       font: "regular",
       size: 14,
@@ -210,7 +213,7 @@ export function hero(p: Profile, t: Theme, opts: { motion?: boolean; cursor?: bo
       `${ticks.filter((_, i) => i % 2 === 1).join("")}${peak}</g>` +
       caption +
       head.join("") +
-      legendSvg,
+      chips,
   );
 }
 

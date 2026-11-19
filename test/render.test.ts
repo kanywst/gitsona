@@ -68,8 +68,8 @@ describe("typeface presets", () => {
     });
   }
 
-  test("the hero legend never runs into the month labels", () => {
-    // Long enough to wrap both blocks, so the card has to grow.
+  test("hero text stays above the badges, and the badges above the month labels", () => {
+    // Long enough to wrap the headline and the summary, so the card has to grow.
     const long = {
       ...p,
       headline: "Security, authorization, identity and AI agents",
@@ -80,11 +80,18 @@ describe("typeface presets", () => {
       const svg = render(long, { sections: ["hero"], motion: false, typeset: TYPESETS[name] }, new Map()).files.get(
         "hero-dark.svg",
       )!;
-      const h = Number(/height="(\d+)"/.exec(svg)![1]);
+      const chips = [...svg.matchAll(/<rect x="[\d.]+" y="([\d.]+)" width="[\d.]+" height="(\d+)" rx="12"/g)];
+      expect(chips.length, name).toBe(long.badges.length);
+      const top = Number(chips[0]![1]);
+      const bottom = top + Number(chips[0]![2]);
       const ys = [...svg.matchAll(/translate\([\d.]+ ([\d.]+)\)/g)].map((m) => Number(m[1]));
-      const months = h - 26;
-      const legend = ys.filter((y) => y < months - 1);
-      expect(Math.max(...legend), name).toBeLessThanOrEqual(months - 24);
+      const above = ys.filter((y) => y < top);
+      const below = ys.filter((y) => y > bottom);
+      // Text baselines need room for descenders above the badges, and month labels a clear gap below.
+      expect(Math.max(...above), name).toBeLessThanOrEqual(top - 12);
+      expect(Math.min(...below), name).toBeGreaterThanOrEqual(bottom + 14);
+      // Every badge says something: a label and its number.
+      expect(ys.filter((y) => y > top && y < bottom).length, name).toBe(long.badges.length * 2);
     }
   });
 
