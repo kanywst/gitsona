@@ -474,7 +474,8 @@ function buildBadges(
   const ratio = lastYear.days.length ? lastYear.activeDays / lastYear.days.length : 0;
   badges.push({
     id: "cadence",
-    label: ratio >= 0.7 ? "Every day" : ratio >= 0.4 ? "Most days" : "In bursts",
+    // Words that hold up next to the number: "most" means more than half, "every" nearly all of them.
+    label: ratio >= 0.9 ? "Every day" : ratio >= 0.5 ? "Most days" : ratio >= 0.25 ? "Regularly" : "In bursts",
     fact: `${lastYear.activeDays} of ${lastYear.days.length} days active`,
   });
   if (rhythm.samples) {

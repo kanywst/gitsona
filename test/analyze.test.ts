@@ -155,9 +155,12 @@ describe("badges", () => {
       });
       return analyze(raw).badges.find((b) => b.id === "cadence")!;
     };
-    expect(label(105).label).toBe("In bursts");
+    expect(label(60).label).toBe("In bursts");
+    expect(label(105).label).toBe("Regularly");
+    expect(label(150).label).toBe("Regularly");
     expect(label(200).label).toBe("Most days");
-    expect(label(300).label).toBe("Every day");
+    expect(label(310).label).toBe("Most days");
+    expect(label(340).label).toBe("Every day");
     expect(label(105).fact).toMatch(/^10\d of 36\d days active$/);
   });
 });

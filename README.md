@@ -6,7 +6,7 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/example/hero-dark.svg">
-  <img alt="Example card: a terminal running gitsona kanywst. On the left, the last 12 months of contributions drawn as ASCII terrain; on the right, the name kt and fetch-style rows: Role Security, authorization and identity; Upstream 68 PRs merged in 49 projects; Every day 309 of 365 days active; Night owl 56% of commits 22:00–02:00; Generalist 5 languages cover 80%; Since Dec 2018" src="docs/example/hero-light.svg" width="100%">
+  <img alt="Example card: a terminal running gitsona kanywst. On the left, the last 12 months of contributions drawn as ASCII terrain; on the right, the name kt and fetch-style rows: Role Security, authorization and identity; Upstream 68 PRs merged in 49 projects; Most days 309 of 365 days active; Night owl 56% of commits 22:00–02:00; Generalist 5 languages cover 80%; Since Dec 2018" src="docs/example/hero-light.svg" width="100%">
 </picture>
 
 It reads your public activity and draws it as a terminal running `gitsona <you>`: your year as ASCII terrain, and the facts as fetch-style rows that type themselves in. Four of them say what sets you apart, each backed by a number. Under the card go the one-sentence summary, your latest repos and your last merged upstream PR. That's the whole profile: one screen, so your pins and contribution graph show right below. Nothing is hosted: the images are plain files in your own repo and make no outside requests. The examples here are the author's profile, drawn from live data.
