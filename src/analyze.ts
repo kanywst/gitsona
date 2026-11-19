@@ -17,6 +17,13 @@ export interface Trait {
   evidence: string;
 }
 
+/** A short label and the one number behind it, for the hero. */
+export interface Badge {
+  id: string;
+  label: string;
+  fact: string;
+}
+
 export interface UpstreamProject {
   repo: string;
   owner: string;
@@ -60,6 +67,8 @@ export interface Profile {
     longestStreak: number;
   };
   traits: Trait[];
+  /** The hero's four labels: what the traits and the rhythm add up to, each with its number. */
+  badges: Badge[];
   rhythm: {
     /** grid[weekday 0=Mon][hour 0..23] commit counts in the author's local time. */
     grid: number[][];
@@ -67,6 +76,8 @@ export interface Profile {
     peakHour: number;
     window: [number, number];
     chronotype: string;
+    /** Share of sampled commits that fall in the window. */
+    share: number;
     sentence: string;
     monthly: { month: string; commits: number }[];
   };
@@ -130,6 +141,7 @@ export function analyze(raw: RawData, now = new Date(raw.fetchedAt)): Profile {
     lastYear,
     lifetime: lifetimeStats(raw),
     traits,
+    badges: buildBadges(traits, rhythm, lastYear, upstream, languages, live.length),
     rhythm,
     upstream,
     landmarks: pickLandmarks(raw, live, domains, now),
@@ -341,6 +353,7 @@ function rhythmStats(raw: RawData): Profile["rhythm"] {
     peakHour,
     window: [bestStart, (bestStart + 4) % 24],
     chronotype,
+    share: samples ? best / samples : 0,
     sentence,
     monthly: raw.monthlyCommits,
   };
@@ -429,6 +442,63 @@ function buildTraits(
   });
 
   return traits;
+}
+
+function buildBadges(
+  traits: Trait[],
+  rhythm: Profile["rhythm"],
+  lastYear: Profile["lastYear"],
+  upstream: Profile["upstream"],
+  languages: LangShare[],
+  ownRepos: number,
+): Badge[] {
+  const side = (id: string) => {
+    const t = traits.find((x) => x.id === id)!;
+    return t.value >= 0.5 ? t.right : t.left;
+  };
+  const badges: Badge[] = [];
+  const projects = upstream.projects.length;
+  const upstreamSide = side("upstream");
+  badges.push({
+    id: "upstream",
+    label: upstreamSide,
+    // The number has to back the label: merged PRs for "Upstream", the person's own work for "Own repos".
+    fact:
+      upstreamSide === "Upstream"
+        ? `${upstream.merged} PRs merged in ${projects} ${projects === 1 ? "project" : "projects"}`
+        : `${ownRepos} public ${ownRepos === 1 ? "repository" : "repositories"} of their own`,
+  });
+  badges.push({
+    id: "cadence",
+    label: side("cadence"),
+    fact: `${lastYear.activeDays} of ${lastYear.days.length} days active`,
+  });
+  if (rhythm.samples) {
+    const [a, b] = rhythm.window;
+    badges.push({
+      id: "rhythm",
+      label: rhythm.chronotype,
+      fact: `${pct(rhythm.share)} of commits ${fmtHour(a)}–${fmtHour(b)}`,
+    });
+  }
+  let acc = 0;
+  let l80 = 0;
+  for (const l of languages) {
+    if (acc >= 0.8) break;
+    acc += l.share;
+    l80++;
+  }
+  const breadth = side("breadth");
+  const top = languages[0];
+  badges.push({
+    id: "breadth",
+    label: breadth,
+    fact:
+      breadth === "Specialist" && top
+        ? `${top.name} is ${pct(top.share)} of the code`
+        : `${l80} ${l80 === 1 ? "language covers" : "languages cover"} 80%`,
+  });
+  return badges;
 }
 
 function joinList(items: string[]): string {

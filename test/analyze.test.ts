@@ -104,3 +104,23 @@ describe("helpers", () => {
     expect(buildHeadline([])).toBe("Software on GitHub");
   });
 });
+
+describe("badges", () => {
+  test("each label comes with the number behind it", () => {
+    const p = analyze(fixture());
+    expect(p.badges.map((b) => b.id)).toEqual(["upstream", "cadence", "rhythm", "breadth"]);
+    for (const b of p.badges) expect(b.fact).toMatch(/\d/);
+  });
+
+  test("an own-repos label is backed by own repositories, not upstream PRs", () => {
+    const p = analyze(fixture());
+    const b = p.badges.find((x) => x.id === "upstream")!;
+    if (b.label === "Own repos") expect(b.fact).toMatch(/repositor(y|ies) of their own/);
+    else expect(b.fact).toMatch(/PRs merged/);
+    const raw = fixture();
+    raw.prs = [];
+    const own = analyze(raw).badges.find((x) => x.id === "upstream")!;
+    expect(own.label).toBe("Own repos");
+    expect(own.fact).toMatch(/of their own$/);
+  });
+});
