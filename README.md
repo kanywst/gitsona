@@ -6,10 +6,10 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/example/hero-dark.svg">
-  <img alt="Example hero: a contour map of the last 12 months of contributions next to the name kt, the headline Security, authorization and AI agents, and four numbers" src="docs/example/hero-light.svg" width="100%">
+  <img alt="Example hero: the name kt, the headline Security, authorization and identity, a one-line summary, and four badges (Upstream, Every day, Night owl, Generalist) each with its number, over a contour map of the last 12 months of contributions" src="docs/example/hero-light.svg" width="100%">
 </picture>
 
-It reads your public activity, works out what you build and how you work, and writes a `README.md` plus SVGs for your profile repo. Nothing is hosted: the images are plain files in your own repo and make no outside requests. The examples here are the author's profile, drawn from live data.
+It reads your public activity and draws one card: what you build, and four things that set you apart, each backed by a number. Under it go two lines, your latest repos and your last merged upstream PR. That's the whole profile: one screen, so your pins and contribution graph show right below. Nothing is hosted: the images are plain files in your own repo and make no outside requests. The examples here are the author's profile, drawn from live data.
 
 ## Two steps to your profile
 
@@ -18,30 +18,19 @@ It reads your public activity, works out what you build and how you work, and wr
 
 The token comes from `GITSONA_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`, or `gh auth token`, and gitsona draws the account behind it. To draw someone else, name them: `npx gitsona octocat --preview`.
 
-## What it finds
+## Want more?
 
-**How you work.** Four spectra, each with the numbers that placed the marker.
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/example/traits-dark.svg">
-  <img alt="Working style: four spectra with evidence, such as 64 merged PRs across 46 projects owned by others" src="docs/example/traits-light.svg" width="100%">
-</picture>
-
-**When you work.** Weekday by hour, read in each commit's own time zone.
+`--sections all` adds five panels under the card, or name the ones you want, in order: `traits`, `rhythm`, `projects`, `strata`, `upstream`.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/example/rhythm-dark.svg">
-  <img alt="Rhythm: a weekday by hour dot grid with the 22:00 to 02:00 window highlighted, labelled Night owl" src="docs/example/rhythm-light.svg" width="100%">
+  <img alt="Rhythm panel: a weekday by hour dot grid with the 22:00 to 02:00 window highlighted, labelled Night owl" src="docs/example/rhythm-light.svg" width="100%">
 </picture>
-
-**Where you give back.** Merged pull requests in projects owned by others.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/example/upstream-dark.svg">
-  <img alt="Upstream: merged pull requests per project, led by dexidp/dex and spiffe/spire" src="docs/example/upstream-light.svg" width="100%">
+  <img alt="Upstream panel: merged pull requests per project, led by dexidp/dex and spiffe/spire" src="docs/example/upstream-light.svg" width="100%">
 </picture>
-
-Plus project cards for notable repos you haven't pinned, and your language mix year by year. All six (`hero`, `traits`, `rhythm`, `projects`, `strata`, `upstream`) are drawn by default; `--sections` picks and orders them.
 
 ## Pick a typeface
 
@@ -59,10 +48,11 @@ Plus project cards for notable repos you haven't pinned, and your language mix y
 | `--preview` | Also write `gitsona-preview.html`, framed like a GitHub profile with a light/dark switch |
 | `--push` | Create `<you>/<you>` if needed, commit and push. `-y` skips the questions |
 | `--action` | Add a weekly workflow that redraws the profile |
-| `--sections <list>` | Pick and order sections, such as `hero,rhythm` |
+| `--sections <list>` | `all`, or pick and order panels, such as `hero,rhythm` |
 | `--font <name>` | `pixel`, `geist`, `mono`, `grotesk`, `rounded` or `retro` |
 | `--accent <hex>` | Accent colour. Defaults to your top language's colour |
 | `--private` | Count private repos in language and topic stats. Their names are never drawn |
+| `--bio` | Repeat your GitHub bio under the card. The sidebar already shows it |
 
 `npx gitsona --help` lists the rest. Output goes to `./<you>`, or to `.` inside a `<you>/<you>` checkout; `-o` changes it.
 
